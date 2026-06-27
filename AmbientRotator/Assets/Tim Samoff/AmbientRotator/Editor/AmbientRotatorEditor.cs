@@ -36,6 +36,10 @@ namespace AmbientRotator
             
             EditorGUILayout.Space();
             
+            DrawStartDelaySettings();
+            
+            EditorGUILayout.Space();
+            
             DrawCustomProfileSettings();
             
             EditorGUILayout.Space();
@@ -64,44 +68,37 @@ namespace AmbientRotator
             {
                 if (GUILayout.Button("Subtle", GUILayout.Height(25)))
                 {
-                    ApplyQuickPreset(MotionProfile.Subtle, 0.5f, 0.5f);
+                    ApplyQuickPreset(MotionProfile.Subtle);
                 }
                 if (GUILayout.Button("Gentle", GUILayout.Height(25)))
                 {
-                    ApplyQuickPreset(MotionProfile.Gentle, 1f, 1f);
+                    ApplyQuickPreset(MotionProfile.Gentle);
                 }
                 if (GUILayout.Button("Organic", GUILayout.Height(25)))
                 {
-                    ApplyQuickPreset(MotionProfile.Organic, 1.5f, 0.8f);
+                    ApplyQuickPreset(MotionProfile.Organic);
                 }
                 if (GUILayout.Button("Dynamic", GUILayout.Height(25)))
                 {
-                    ApplyQuickPreset(MotionProfile.Dynamic, 1.2f, 1.5f);
+                    ApplyQuickPreset(MotionProfile.Dynamic);
                 }
                 if (GUILayout.Button("Chaotic", GUILayout.Height(25)))
                 {
-                    ApplyQuickPreset(MotionProfile.Chaotic, 2f, 2f);
+                    ApplyQuickPreset(MotionProfile.Chaotic);
                 }
             }
         }
         
-        private void ApplyQuickPreset(MotionProfile profile, float intensity, float speed)
+        private void ApplyQuickPreset(MotionProfile profile)
         {
             var profileProp = serializedObject.FindProperty("profile");
-            var intensityProp = serializedObject.FindProperty("intensity");
-            var speedProp = serializedObject.FindProperty("speed");
-            
             profileProp.enumValueIndex = (int)profile;
-            intensityProp.floatValue = intensity;
-            speedProp.floatValue = speed;
-            
             serializedObject.ApplyModifiedProperties();
             
+            // The preset values will be applied by OnValidate in the runtime script
             if (EditorApplication.isPlaying)
             {
                 rotator.SetProfile(profile);
-                rotator.SetIntensity(intensity);
-                rotator.SetSpeed(speed);
             }
             
             EditorUtility.SetDirty(rotator);
@@ -118,18 +115,57 @@ namespace AmbientRotator
         
         private void DrawMovementSettings()
         {
-            EditorGUILayout.LabelField("Movement Limits", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Movement", EditorStyles.boldLabel);
+            
             EditorGUILayout.PropertyField(serializedObject.FindProperty("maxAngle"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("clampMovement"));
+            
+            EditorGUILayout.Space();
+            
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("decisionDuration"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("completeRotation"));
+            
+            EditorGUILayout.Space();
+            
             EditorGUILayout.PropertyField(serializedObject.FindProperty("smoothTime"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("maxSpeed"));
+        }
+        
+        private void DrawStartDelaySettings()
+        {
+            EditorGUILayout.LabelField("Start Delay", EditorStyles.boldLabel);
+            
+            SerializedProperty useDelay = serializedObject.FindProperty("useStartDelay");
+            SerializedProperty minDelay = serializedObject.FindProperty("startDelayMin");
+            SerializedProperty maxDelay = serializedObject.FindProperty("startDelayMax");
+            SerializedProperty randomize = serializedObject.FindProperty("randomizeStartDelay");
+            
+            EditorGUILayout.PropertyField(useDelay);
+            
+            if (useDelay.boolValue)
+            {
+                EditorGUI.indentLevel++;
+                
+                EditorGUILayout.PropertyField(randomize);
+                
+                if (randomize.boolValue)
+                {
+                    EditorGUILayout.PropertyField(minDelay, new GUIContent("Min Delay"));
+                    EditorGUILayout.PropertyField(maxDelay, new GUIContent("Max Delay"));
+                }
+                else
+                {
+                    EditorGUILayout.PropertyField(minDelay, new GUIContent("Delay"));
+                }
+                
+                EditorGUI.indentLevel--;
+            }
         }
         
         private void DrawCustomProfileSettings()
         {
             EditorGUILayout.LabelField("Custom Profile", EditorStyles.boldLabel);
             
-            // Use SerializedProperty for safe access
             SerializedProperty useCustomProfileProp = serializedObject.FindProperty("useCustomProfile");
             SerializedProperty customProfileProp = serializedObject.FindProperty("customProfile");
             SerializedProperty blendProfilesProp = serializedObject.FindProperty("blendProfiles");
@@ -141,6 +177,8 @@ namespace AmbientRotator
             
             if (useCustomProfileProp.boolValue)
             {
+                EditorGUI.indentLevel++;
+                
                 EditorGUILayout.PropertyField(customProfileProp);
                 
                 EditorGUILayout.Space();
@@ -149,21 +187,27 @@ namespace AmbientRotator
                 
                 if (blendProfilesProp.boolValue)
                 {
+                    EditorGUI.indentLevel++;
                     EditorGUILayout.PropertyField(secondaryProfileProp);
                     EditorGUILayout.PropertyField(blendWeightProp);
                     EditorGUILayout.PropertyField(blendSpeedProp);
+                    EditorGUI.indentLevel--;
                 }
+                
+                EditorGUILayout.Space();
                 
                 if (GUILayout.Button("Open Profile Library", GUILayout.Height(25)))
                 {
                     ProfileSelector.ShowWindow();
                 }
+                
+                EditorGUI.indentLevel--;
             }
         }
         
         private void DrawAdvancedSettings()
         {
-            EditorGUILayout.LabelField("Advanced Settings", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Advanced", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(serializedObject.FindProperty("updateMethod"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("useUnscaledTime"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("autoStart"));

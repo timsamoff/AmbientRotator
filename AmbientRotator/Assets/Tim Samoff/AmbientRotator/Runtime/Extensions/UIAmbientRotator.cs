@@ -21,9 +21,8 @@ namespace AmbientRotator
         private Vector3 initialScale;
         private Color initialColor;
         
-        protected override void Awake()
+        private void Start()
         {
-            base.Awake();
             rectTransform = GetComponent<RectTransform>();
             graphic = GetComponent<Graphic>();
             
@@ -37,6 +36,7 @@ namespace AmbientRotator
         
         protected override void UpdateMotion()
         {
+            // Call base update first
             base.UpdateMotion();
             
             Vector3 offset = CurrentOffset;
@@ -63,7 +63,8 @@ namespace AmbientRotator
             
             if (affectColor && graphic != null)
             {
-                float t = Mathf.PingPong(Time.time * speed * 0.5f, 1f);
+                // Use Speed property instead of direct field access
+                float t = Mathf.PingPong(Time.time * Speed * 0.5f, 1f);
                 graphic.color = Color.Lerp(colorMin, colorMax, t);
             }
         }

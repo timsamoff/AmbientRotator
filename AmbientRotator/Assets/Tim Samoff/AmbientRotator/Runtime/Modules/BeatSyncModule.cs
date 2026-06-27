@@ -36,7 +36,8 @@ namespace AmbientRotator
             
             if (musicSource == null)
             {
-                musicSource = FindObjectOfType<AudioSource>();
+                // Fix: Use FindAnyObjectByType instead of FindObjectOfType
+                musicSource = FindAnyObjectByType<AudioSource>();
                 if (musicSource == null)
                 {
                     Debug.LogWarning("BeatSyncModule: No AudioSource found!");

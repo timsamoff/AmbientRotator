@@ -8,15 +8,25 @@ namespace AmbientRotator
     public class CurveEditorWindow : EditorWindow
     {
         private SerializedProperty elementProperty;
-        private AnimationCurvePreviewCache previewCache;
         private int selectedCurve = 0;
         private string[] curveNames = { "X Curve", "Y Curve", "Z Curve" };
+        private AnimationCurve previewCache;
+        private float previewTime;
         
         public static void ShowWindow(SerializedProperty element)
         {
             var window = GetWindow<CurveEditorWindow>("Curve Editor");
             window.elementProperty = element;
+            window.minSize = new Vector2(400, 300);
             window.Show();
+        }
+        
+        private void OnEnable()
+        {
+            previewCache = new AnimationCurve();
+            previewCache.AddKey(0, 0);
+            previewCache.AddKey(0.5f, 1);
+            previewCache.AddKey(1, 0);
         }
         
         private void OnGUI()
@@ -24,27 +34,64 @@ namespace AmbientRotator
             if (elementProperty == null)
             {
                 EditorGUILayout.HelpBox("No curve selected", MessageType.Warning);
+                if (GUILayout.Button("Close"))
+                {
+                    Close();
+                }
                 return;
             }
             
+            // Draw toolbar
             selectedCurve = GUILayout.Toolbar(selectedCurve, curveNames);
             
             EditorGUILayout.Space();
             
+            // Draw selected curve
             SerializedProperty curveProp = GetCurveProperty(selectedCurve);
             if (curveProp != null)
             {
-                EditorGUILayout.PropertyField(curveProp, GUIContent.none);
+                // Draw the curve editor
+                EditorGUILayout.PropertyField(curveProp, GUIContent.none, GUILayout.Height(200));
             }
             
             EditorGUILayout.Space();
+            
+            // Draw curve tools
+            DrawCurveTools();
+            
+            // Draw preview
+            DrawPreview();
+            
+            if (GUI.changed)
+            {
+                elementProperty.serializedObject.ApplyModifiedProperties();
+            }
+        }
+        
+        private SerializedProperty GetCurveProperty(int index)
+        {
+            if (elementProperty == null) return null;
+            
+            switch(index)
+            {
+                case 0: return elementProperty.FindPropertyRelative("curveX");
+                case 1: return elementProperty.FindPropertyRelative("curveY");
+                case 2: return elementProperty.FindPropertyRelative("curveZ");
+                default: return null;
+            }
+        }
+        
+        private void DrawCurveTools()
+        {
             EditorGUILayout.LabelField("Curve Tools", EditorStyles.boldLabel);
             
             using (new GUILayout.HorizontalScope())
             {
-                if (GUILayout.Button("Smooth"))
+                if (GUILayout.Button("Smooth All"))
                 {
-                    SmoothCurve(GetCurveProperty(selectedCurve));
+                    SmoothCurve(GetCurveProperty(0));
+                    SmoothCurve(GetCurveProperty(1));
+                    SmoothCurve(GetCurveProperty(2));
                 }
                 if (GUILayout.Button("Invert"))
                 {
@@ -70,22 +117,26 @@ namespace AmbientRotator
                 {
                     SetWaveform(GetCurveProperty(selectedCurve), WaveformType.Triangle);
                 }
-            }
-            
-            if (GUI.changed)
-            {
-                elementProperty.serializedObject.ApplyModifiedProperties();
+                if (GUILayout.Button("Copy to All"))
+                {
+                    CopyToAllCurves(GetCurveProperty(selectedCurve));
+                }
             }
         }
         
-        private SerializedProperty GetCurveProperty(int index)
+        private void DrawPreview()
         {
-            switch(index)
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Preview", EditorStyles.boldLabel);
+            
+            previewTime = EditorGUILayout.Slider("Time", previewTime, 0f, 1f);
+            
+            // Get the current curve and evaluate
+            SerializedProperty curveProp = GetCurveProperty(selectedCurve);
+            if (curveProp != null && curveProp.animationCurveValue != null)
             {
-                case 0: return elementProperty.FindPropertyRelative("curveX");
-                case 1: return elementProperty.FindPropertyRelative("curveY");
-                case 2: return elementProperty.FindPropertyRelative("curveZ");
-                default: return null;
+                float value = curveProp.animationCurveValue.Evaluate(previewTime);
+                EditorGUILayout.LabelField($"Value at {previewTime:F2}: {value:F2}");
             }
         }
         
@@ -94,6 +145,8 @@ namespace AmbientRotator
             if (curveProp == null) return;
             
             AnimationCurve curve = curveProp.animationCurveValue;
+            if (curve == null || curve.keys.Length == 0) return;
+            
             Keyframe[] keys = curve.keys;
             
             for (int i = 0; i < keys.Length; i++)
@@ -111,6 +164,8 @@ namespace AmbientRotator
             if (curveProp == null) return;
             
             AnimationCurve curve = curveProp.animationCurveValue;
+            if (curve == null || curve.keys.Length == 0) return;
+            
             Keyframe[] keys = curve.keys;
             
             for (int i = 0; i < keys.Length; i++)
@@ -160,6 +215,7 @@ namespace AmbientRotator
                 curve.AddKey(t, value);
             }
             
+            // Smooth all keys
             for (int i = 0; i < curve.keys.Length; i++)
             {
                 AnimationUtility.SetKeyLeftTangentMode(curve, i, AnimationUtility.TangentMode.Auto);
@@ -168,6 +224,37 @@ namespace AmbientRotator
             
             curveProp.animationCurveValue = curve;
             curveProp.serializedObject.ApplyModifiedProperties();
+        }
+        
+        private void CopyToAllCurves(SerializedProperty sourceProp)
+        {
+            if (sourceProp == null) return;
+            
+            AnimationCurve sourceCurve = sourceProp.animationCurveValue;
+            if (sourceCurve == null) return;
+            
+            // Copy to X
+            SerializedProperty xProp = GetCurveProperty(0);
+            if (xProp != null && xProp != sourceProp)
+            {
+                xProp.animationCurveValue = new AnimationCurve(sourceCurve.keys);
+            }
+            
+            // Copy to Y
+            SerializedProperty yProp = GetCurveProperty(1);
+            if (yProp != null && yProp != sourceProp)
+            {
+                yProp.animationCurveValue = new AnimationCurve(sourceCurve.keys);
+            }
+            
+            // Copy to Z
+            SerializedProperty zProp = GetCurveProperty(2);
+            if (zProp != null && zProp != sourceProp)
+            {
+                zProp.animationCurveValue = new AnimationCurve(sourceCurve.keys);
+            }
+            
+            elementProperty.serializedObject.ApplyModifiedProperties();
         }
     }
 }

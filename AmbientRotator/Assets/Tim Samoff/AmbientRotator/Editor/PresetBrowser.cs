@@ -12,7 +12,7 @@ namespace AmbientRotator
         private List<AmbientPreset> presets = new List<AmbientPreset>();
         private string[] presetPaths;
         private int selectedPresetIndex = -1;
-        private bool showPreview = false;
+        // Removed unused field: private bool showPreview = false;
         
         [MenuItem("Window/Ambient Rotator/Preset Browser")]
         public static void ShowWindow()

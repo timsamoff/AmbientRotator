@@ -37,8 +37,6 @@ namespace AmbientRotator
         [Header("Custom Profile")]
         [SerializeField] private bool useCustomProfile = false;
         [SerializeField] private CustomMotionProfile customProfile;
-        
-        [Header("Profile Blending")]
         [SerializeField] private bool blendProfiles = false;
         [SerializeField] private CustomMotionProfile secondaryProfile;
         [SerializeField, Range(0f, 1f)] private float blendWeight = 0.5f;
@@ -61,31 +59,50 @@ namespace AmbientRotator
         public UnityEvent OnResume;
         
         // Private variables
-        private Transform cachedTransform;
-        private Quaternion initialRotation;
-        private Quaternion targetRotation;
-        private Quaternion currentVelocity;
-        private Vector3 currentOffset;
-        private float currentTime;
-        private bool isPaused = false;
-        private bool isPreviewing = false;
-        private Coroutine motionCoroutine;
+        protected Transform cachedTransform;
+        protected Quaternion initialRotation;
+        protected Quaternion targetRotation;
+        protected Quaternion currentVelocity;
+        protected Vector3 currentOffset;
+        protected float currentTime;
+        protected bool isPaused = false;
+        protected bool isPreviewing = false;
+        protected Coroutine motionCoroutine;
         
         // External influences
-        private Vector3 externalForce;
-        private float externalForceDecay = 0.95f;
+        protected Vector3 externalForce;
+        protected float externalForceDecay = 0.95f;
         
         // Wind system reference
-        private WindSystem windSystem;
-        private bool windInitialized = false;
+        protected WindSystem windSystem;
+        protected bool windInitialized = false;
         
-        // Properties
+        // Public properties for Editor access
+        public bool UseCustomProfile => useCustomProfile;
+        public CustomMotionProfile CustomProfile => customProfile;
+        public bool BlendProfiles => blendProfiles;
+        public CustomMotionProfile SecondaryProfile => secondaryProfile;
+        public float BlendWeight => blendWeight;
+        public float BlendSpeed => blendSpeed;
+        
+        // Public getters/setters
         public bool IsPaused => isPaused;
         public MotionProfile CurrentProfile => profile;
         public float CurrentIntensity => intensity;
         public Vector3 CurrentOffset => currentOffset;
+        public Vector3 MaxAngle { get => maxAngle; set => maxAngle = value; }
+        public float SmoothTime { get => smoothTime; set => smoothTime = value; }
+        public float Speed { get => speed; set => speed = Mathf.Clamp(value, 0.1f, 10f); }
+        public float PhaseOffset { get => phaseOffset; set => phaseOffset = value; }
         
-        private void Awake()
+        // Public setters for Editor
+        public void SetUseCustomProfile(bool value) => useCustomProfile = value;
+        public void SetBlendProfiles(bool value) => blendProfiles = value;
+        public void SetSecondaryProfile(CustomMotionProfile profile) => secondaryProfile = profile;
+        public void SetBlendWeight(float value) => blendWeight = Mathf.Clamp01(value);
+        public void SetBlendSpeed(float value) => blendSpeed = value;
+        
+        protected virtual void Awake()
         {
             cachedTransform = transform;
             initialRotation = useLocalRotation ? cachedTransform.localRotation : cachedTransform.rotation;
@@ -93,7 +110,7 @@ namespace AmbientRotator
             
             if (windSystem == null)
             {
-                windSystem = FindObjectOfType<WindSystem>();
+                windSystem = FindAnyObjectByType<WindSystem>();
                 windInitialized = windSystem != null;
             }
         }
@@ -221,49 +238,78 @@ namespace AmbientRotator
             {
                 if (!isPaused)
                 {
-                    float time = useUnscaledTime ? Time.unscaledTime : Time.time;
-                    currentTime = time * speed + phaseOffset;
-                    
-                    Vector3 targetOffset = CalculateMotion(currentTime);
-                    
-                    if (windInitialized && windSystem != null)
+                    // Update based on selected method
+                    switch (updateMethod)
                     {
-                        Vector3 windForce = windSystem.GetWindForce(cachedTransform.position);
-                        targetOffset += windForce * 0.01f;
+                        case UpdateMethod.Update:
+                            UpdateMotion();
+                            yield return new WaitForEndOfFrame();
+                            break;
+                        case UpdateMethod.FixedUpdate:
+                            UpdateMotion();
+                            yield return new WaitForFixedUpdate();
+                            break;
+                        case UpdateMethod.LateUpdate:
+                            // LateUpdate runs after all Updates
+                            yield return new WaitForEndOfFrame();
+                            UpdateMotion();
+                            break;
+                        default:
+                            UpdateMotion();
+                            yield return new WaitForEndOfFrame();
+                            break;
                     }
-                    
-                    if (externalForce.magnitude > 0.01f)
-                    {
-                        targetOffset += externalForce * Time.deltaTime;
-                        externalForce *= externalForceDecay;
-                    }
-                    else
-                    {
-                        externalForce = Vector3.zero;
-                    }
-                    
-                    if (clampMovement)
-                    {
-                        targetOffset = Vector3.ClampMagnitude(targetOffset, maxAngle.magnitude);
-                    }
-                    
-                    currentOffset = Vector3.Lerp(currentOffset, targetOffset, Time.deltaTime / smoothTime);
-                    
-                    Quaternion targetQuat = initialRotation * Quaternion.Euler(currentOffset);
-                    
-                    if (useLocalRotation)
-                        cachedTransform.localRotation = targetQuat;
-                    else
-                        cachedTransform.rotation = targetQuat;
-                    
-                    OnRotationChanged?.Invoke(targetQuat);
                 }
-                
-                yield return new WaitForEndOfFrame();
+                else
+                {
+                    yield return null;
+                }
             }
         }
         
-        private Vector3 CalculateMotion(float time)
+        protected virtual void UpdateMotion()
+        {
+            float time = useUnscaledTime ? Time.unscaledTime : Time.time;
+            currentTime = time * speed + phaseOffset;
+            
+            Vector3 targetOffset = CalculateMotion(currentTime);
+            
+            if (windInitialized && windSystem != null)
+            {
+                Vector3 windForce = windSystem.GetWindForce(cachedTransform.position);
+                targetOffset += windForce * 0.01f;
+            }
+            
+            if (externalForce.magnitude > 0.01f)
+            {
+                targetOffset += externalForce * Time.deltaTime;
+                externalForce *= externalForceDecay;
+            }
+            else
+            {
+                externalForce = Vector3.zero;
+            }
+            
+            if (clampMovement)
+            {
+                targetOffset = Vector3.ClampMagnitude(targetOffset, maxAngle.magnitude);
+            }
+            
+            // Use maxSpeed to limit interpolation speed
+            float smoothSpeed = Mathf.Min(1f / smoothTime, maxSpeed);
+            currentOffset = Vector3.Lerp(currentOffset, targetOffset, Time.deltaTime * smoothSpeed);
+            
+            Quaternion targetQuat = initialRotation * Quaternion.Euler(currentOffset);
+            
+            if (useLocalRotation)
+                cachedTransform.localRotation = targetQuat;
+            else
+                cachedTransform.rotation = targetQuat;
+            
+            OnRotationChanged?.Invoke(targetQuat);
+        }
+        
+        protected Vector3 CalculateMotion(float time)
         {
             if (useCustomProfile && customProfile != null)
             {

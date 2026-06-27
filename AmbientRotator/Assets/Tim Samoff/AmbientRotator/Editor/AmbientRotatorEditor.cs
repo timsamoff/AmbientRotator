@@ -128,21 +128,30 @@ namespace AmbientRotator
         private void DrawCustomProfileSettings()
         {
             EditorGUILayout.LabelField("Custom Profile", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("useCustomProfile"));
             
-            if (rotator.useCustomProfile)
+            // Use SerializedProperty for safe access
+            SerializedProperty useCustomProfileProp = serializedObject.FindProperty("useCustomProfile");
+            SerializedProperty customProfileProp = serializedObject.FindProperty("customProfile");
+            SerializedProperty blendProfilesProp = serializedObject.FindProperty("blendProfiles");
+            SerializedProperty secondaryProfileProp = serializedObject.FindProperty("secondaryProfile");
+            SerializedProperty blendWeightProp = serializedObject.FindProperty("blendWeight");
+            SerializedProperty blendSpeedProp = serializedObject.FindProperty("blendSpeed");
+            
+            EditorGUILayout.PropertyField(useCustomProfileProp);
+            
+            if (useCustomProfileProp.boolValue)
             {
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("customProfile"));
+                EditorGUILayout.PropertyField(customProfileProp);
                 
                 EditorGUILayout.Space();
                 EditorGUILayout.LabelField("Profile Blending", EditorStyles.boldLabel);
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("blendProfiles"));
+                EditorGUILayout.PropertyField(blendProfilesProp);
                 
-                if (rotator.blendProfiles)
+                if (blendProfilesProp.boolValue)
                 {
-                    EditorGUILayout.PropertyField(serializedObject.FindProperty("secondaryProfile"));
-                    EditorGUILayout.PropertyField(serializedObject.FindProperty("blendWeight"));
-                    EditorGUILayout.PropertyField(serializedObject.FindProperty("blendSpeed"));
+                    EditorGUILayout.PropertyField(secondaryProfileProp);
+                    EditorGUILayout.PropertyField(blendWeightProp);
+                    EditorGUILayout.PropertyField(blendSpeedProp);
                 }
                 
                 if (GUILayout.Button("Open Profile Library", GUILayout.Height(25)))
@@ -228,8 +237,8 @@ namespace AmbientRotator
             Handles.DrawWireArc(position, Vector3.forward, Vector3.right, 360, radius);
             
             Handles.color = new Color(1f, 0.5f, 0f, 0.3f);
-            float angleRadius = rotator.maxAngle.magnitude * 0.02f;
-            Handles.DrawSolidArc(position, Vector3.up, Vector3.forward, rotator.maxAngle.x, angleRadius);
+            float angleRadius = rotator.MaxAngle.magnitude * 0.02f;
+            Handles.DrawSolidArc(position, Vector3.up, Vector3.forward, rotator.MaxAngle.x, angleRadius);
         }
     }
 }

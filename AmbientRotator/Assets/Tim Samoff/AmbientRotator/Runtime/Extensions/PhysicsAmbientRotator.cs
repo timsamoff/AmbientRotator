@@ -16,9 +16,8 @@ namespace AmbientRotator
         private Vector3 targetTorque;
         private Vector3 currentTorque;
         
-        protected override void Awake()
+        private void Start()
         {
-            base.Awake();
             rb = GetComponent<Rigidbody>();
             
             if (rb == null)
@@ -35,6 +34,7 @@ namespace AmbientRotator
                 return;
             }
             
+            // CalculateMotion is now protected, so we can access it
             Vector3 motionOffset = CalculateMotion(currentTime);
             targetTorque = motionOffset * torqueMultiplier;
             

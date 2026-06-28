@@ -10,30 +10,55 @@ namespace AmbientRotator
         public static Vector3 GlobalWindDirection => instance?.currentDirection ?? Vector3.right;
         
         [Header("Wind Settings")]
-        [SerializeField] private float baseStrength = 1f;
+        [Tooltip("Base wind strength. Higher values = stronger wind effect.")]
+        [SerializeField] private float baseStrength = 0.3f;
+        
+        [Tooltip("How often wind gusts occur. Higher = more frequent gusts.")]
         [SerializeField] private float gustFrequency = 2f;
-        [SerializeField] private float gustAmplitude = 0.5f;
+        
+        [Tooltip("How strong the gusts are. Higher = more dramatic gusts.")]
+        [SerializeField] private float gustAmplitude = 0.2f;
+        
+        [Tooltip("The main direction the wind blows. (X, Y, Z)")]
         [SerializeField] private Vector3 baseDirection = Vector3.right;
         
         [Header("Turbulence")]
-        [SerializeField] private float turbulence = 0.3f;
+        [Tooltip("How much random variation the wind has. Higher = more chaotic wind.")]
+        [SerializeField] private float turbulence = 0.2f;
+        
+        [Tooltip("How quickly the turbulence changes. Higher = faster changing wind.")]
         [SerializeField] private float turbulenceFrequency = 0.5f;
-        [SerializeField] private float turbulenceScale = 0.1f;
+        
+        [Tooltip("How much the turbulence affects direction. Higher = more directional variation.")]
+        [SerializeField] private float turbulenceScale = 0.05f;
         
         [Header("Visual")]
+        [Tooltip("Show a debug arrow in the Scene view showing wind direction and strength.")]
         [SerializeField] private bool showDebugArrow = true;
+        
+        [Tooltip("Color of the debug arrow.")]
         [SerializeField] private Color arrowColor = Color.white;
+        
+        [Tooltip("Length of the debug arrow. Longer = visually stronger wind.")]
         [SerializeField] private float arrowLength = 2f;
         
         [Header("Wind Zones")]
+        [Tooltip("Localized areas with different wind behavior.")]
         [SerializeField] private List<WindZone> windZones = new List<WindZone>();
         
         [System.Serializable]
         public class WindZone
         {
+            [Tooltip("Center position of the wind zone.")]
             public Vector3 center;
+            
+            [Tooltip("Radius of the wind zone's influence.")]
             public float radius = 10f;
+            
+            [Tooltip("Wind strength multiplier within this zone.")]
             public float strength = 1f;
+            
+            [Tooltip("Wind direction within this zone.")]
             public Vector3 direction = Vector3.right;
         }
         
@@ -46,12 +71,12 @@ namespace AmbientRotator
             if (instance == null)
             {
                 instance = this;
-                DontDestroyOnLoad(gameObject);
                 timeOffset = Random.Range(0f, 100f);
+                Debug.Log("WindSystem initialized.");
             }
             else
             {
-                Destroy(gameObject);
+                Debug.LogWarning("Multiple WindSystems found. Using the first one.");
             }
         }
         
@@ -75,7 +100,7 @@ namespace AmbientRotator
         
         public Vector3 GetWindForce(Vector3 position)
         {
-            Vector3 force = currentDirection * currentStrength;
+            Vector3 force = currentDirection * currentStrength * 0.01f;
             
             foreach (var zone in windZones)
             {
@@ -83,12 +108,12 @@ namespace AmbientRotator
                 if (distance < zone.radius)
                 {
                     float influence = 1f - (distance / zone.radius);
-                    force += zone.direction * zone.strength * influence;
+                    force += zone.direction * zone.strength * influence * 0.005f;
                 }
             }
             
             float variation = Mathf.PerlinNoise(position.x * 0.1f + timeOffset, position.z * 0.1f + timeOffset);
-            force *= (0.8f + variation * 0.4f);
+            force *= (0.8f + variation * 0.2f);
             
             return force;
         }

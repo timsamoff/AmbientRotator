@@ -190,8 +190,8 @@ namespace AmbientRotator
                     intensity = 0.3f;
                     speed = 0.3f;
                     decisionDuration = 4f;
-                    maxAngle = new Vector3(360f, 360f, 360f);
-                    clampMovement = false;
+                    maxAngle = new Vector3(30f, 30f, 30f);
+                    clampMovement = true;
                     smoothTime = 0.8f;
                     maxSpeed = 50f;
                     break;
@@ -200,8 +200,8 @@ namespace AmbientRotator
                     intensity = 0.6f;
                     speed = 0.5f;
                     decisionDuration = 3f;
-                    maxAngle = new Vector3(360f, 360f, 360f);
-                    clampMovement = false;
+                    maxAngle = new Vector3(60f, 60f, 60f);
+                    clampMovement = true;
                     smoothTime = 0.6f;
                     maxSpeed = 80f;
                     break;
@@ -210,8 +210,8 @@ namespace AmbientRotator
                     intensity = 1.0f;
                     speed = 0.7f;
                     decisionDuration = 2.5f;
-                    maxAngle = new Vector3(360f, 360f, 360f);
-                    clampMovement = false;
+                    maxAngle = new Vector3(90f, 90f, 90f);
+                    clampMovement = true;
                     smoothTime = 0.4f;
                     maxSpeed = 120f;
                     break;
@@ -220,7 +220,7 @@ namespace AmbientRotator
                     intensity = 1.5f;
                     speed = 1.0f;
                     decisionDuration = 2f;
-                    maxAngle = new Vector3(360f, 360f, 360f);
+                    maxAngle = new Vector3(180f, 180f, 180f);
                     clampMovement = false;
                     smoothTime = 0.3f;
                     maxSpeed = 150f;
@@ -471,41 +471,70 @@ namespace AmbientRotator
         #if UNITY_EDITOR
         private void OnDrawGizmosSelected()
         {
-            // Use Handles in OnDrawGizmos (it works!)
             Transform t = gameObject.transform;
             if (t == null) return;
             
             Vector3 pos = t.position;
             
-            float baseRadius = 0.8f;
-            float scale = Mathf.Max(t.lossyScale.x, t.lossyScale.y, t.lossyScale.z);
-            float radius = baseRadius * scale * 2.5f;
+            // --- Calculate radius based on object's visual size ---
+            float radius = CalculateGizmoRadius();
             
             // --- Solid translucent discs using Handles ---
-            Handles.color = new Color(1f, 0f, 0f, 0.025f);
+            Handles.color = new Color(1f, 0f, 0f, 0.05f);
             Handles.DrawSolidArc(pos, t.right, t.up, maxAngle.x, radius);
             Handles.DrawSolidArc(pos, t.right, t.up, -maxAngle.x, radius);
             
-            Handles.color = new Color(0f, 1f, 0f, 0.025f);
+            Handles.color = new Color(0f, 1f, 0f, 0.05f);
             Handles.DrawSolidArc(pos, t.up, t.forward, maxAngle.y, radius);
             Handles.DrawSolidArc(pos, t.up, t.forward, -maxAngle.y, radius);
             
-            Handles.color = new Color(0f, 0.5f, 1f, 0.025f);
+            Handles.color = new Color(0f, 0.5f, 1f, 0.05f);
             Handles.DrawSolidArc(pos, t.forward, t.up, maxAngle.z, radius);
             Handles.DrawSolidArc(pos, t.forward, t.up, -maxAngle.z, radius);
             
             // --- Wireframe arcs on top ---
-            Handles.color = new Color(1f, 0f, 0f, 0.05f);
+            Handles.color = new Color(1f, 0f, 0f, 0.025f);
             Handles.DrawWireArc(pos, t.right, t.up, maxAngle.x, radius);
             Handles.DrawWireArc(pos, t.right, t.up, -maxAngle.x, radius);
             
-            Handles.color = new Color(0f, 1f, 0f, 0.05f);
+            Handles.color = new Color(0f, 1f, 0f, 0.025f);
             Handles.DrawWireArc(pos, t.up, t.forward, maxAngle.y, radius);
             Handles.DrawWireArc(pos, t.up, t.forward, -maxAngle.y, radius);
             
-            Handles.color = new Color(0f, 0.5f, 1f, 0.05f);
+            Handles.color = new Color(0f, 0.5f, 1f, 0.025f);
             Handles.DrawWireArc(pos, t.forward, t.up, maxAngle.z, radius);
             Handles.DrawWireArc(pos, t.forward, t.up, -maxAngle.z, radius);
+        }
+
+        private float CalculateGizmoRadius()
+        {
+            // --- Method 1: Use Renderer bounds (most accurate) ---
+            Renderer renderer = GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                float boundsSize = renderer.bounds.size.magnitude;
+                return boundsSize * 0.5f; // x the object's visual size
+            }
+            
+            // --- Method 2: Use Mesh bounds (if no renderer) ---
+            MeshFilter meshFilter = GetComponent<MeshFilter>();
+            if (meshFilter != null && meshFilter.sharedMesh != null)
+            {
+                float meshSize = meshFilter.sharedMesh.bounds.size.magnitude;
+                return meshSize * 1.5f * 0.8f; // Adjust for consistent sizing
+            }
+            
+            // --- Method 3: Use Collider bounds (if no mesh/renderer) ---
+            Collider collider = GetComponent<Collider>();
+            if (collider != null)
+            {
+                float colliderSize = collider.bounds.size.magnitude;
+                return colliderSize * 1.5f;
+            }
+            
+            // --- Fallback: Use transform scale (if nothing else) ---
+            float scale = Mathf.Max(transform.lossyScale.x, transform.lossyScale.y, transform.lossyScale.z);
+            return scale * 1.5f;
         }
         #endif
     }

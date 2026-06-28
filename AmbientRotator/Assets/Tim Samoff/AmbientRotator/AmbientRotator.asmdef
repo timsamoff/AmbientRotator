@@ -2,7 +2,8 @@
     "name": "AmbientRotator",
     "rootNamespace": "AmbientRotator",
     "references": [
-        "UnityEngine.UI"
+        "UnityEngine.UI",
+        "UnityEngine.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

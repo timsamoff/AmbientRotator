@@ -19,7 +19,7 @@ namespace AmbientRotator
         [SerializeField]
         [Range(0.001f, 2f)]
         [Tooltip("How smoothly the beat detection transitions. Lower values (0.01-0.1) = snappier, more responsive. Higher values (0.5-2) = smoother, softer motion.")]
-        private float beatSmoothing = 0.1f;
+        private float beatSmoothing = 0.02f;
 
         [Header("Beat Detection")]
         [SerializeField]
@@ -58,6 +58,11 @@ namespace AmbientRotator
         private float rotationForceMultiplier = 1f;
 
         [SerializeField]
+        [Range(0.01f, 0.5f)]
+        [Tooltip("How smooth the rotation is. Lower values (0.01) = smoother, more fluid. Higher values (0.5) = jerkier, more snappy.")]
+        private float rotationSmoothness = 0.1f;
+
+        [SerializeField]
         [Tooltip("Object wobbles side to side on each beat. This creates a 'sway' or 'rocking' effect.")]
         private bool wobble = false;
 
@@ -66,6 +71,11 @@ namespace AmbientRotator
         [Tooltip("Speed of the wobble motion. Higher = faster wobble. Lower = slower, more gentle sway.")]
         private float wobbleFrequency = 2f;
 
+        [SerializeField]
+        [Range(0f, 1f)]
+        [Tooltip("How far the object wobbles on each beat. 0 = no wobble, 0.5 = moderate, 1 = large wobble.")]
+        private float wobbleAmplitude = 0.2f;
+
         private AmbientRotator parentRotator;
         private float[] spectrumData;
         private float currentBeatStrength;
@@ -73,12 +83,15 @@ namespace AmbientRotator
         private float lastBeatTime;
         private bool hasWarned = false;
         private Vector3 originalPosition;
+        private Quaternion originalRotation;
+        private float currentRotationVelocity = 0f;
 
         private void Start()
         {
             parentRotator = GetComponent<AmbientRotator>();
             spectrumData = new float[spectrumSamples];
             originalPosition = transform.position;
+            originalRotation = transform.rotation;
 
             if (musicSource == null)
             {
@@ -135,9 +148,16 @@ namespace AmbientRotator
                 lastBeatTime = Time.time;
             }
 
+            // Smoothly return position if pulse is enabled
             if (pulse)
             {
                 transform.position = Vector3.Lerp(transform.position, originalPosition, Time.deltaTime * 5f);
+            }
+
+            // Smoothly return rotation if rotate is enabled
+            if (rotate)
+            {
+                transform.rotation = Quaternion.Slerp(transform.rotation, originalRotation, Time.deltaTime * 5f);
             }
         }
 
@@ -172,18 +192,25 @@ namespace AmbientRotator
 
             if (rotate)
             {
-                float rotationForce = Random.Range(-1f, 1f) * strength * beatReactionIntensity * rotationForceMultiplier;
-                parentRotator.ApplyForce(Vector3.up * rotationForce);
+                // --- Calculate target rotation amount ---
+                float targetRotation = strength * beatReactionIntensity * rotationForceMultiplier * 0.1f;
+                
+                // --- Smooth the rotation ---
+                currentRotationVelocity = Mathf.Lerp(currentRotationVelocity, targetRotation, Time.deltaTime / rotationSmoothness);
+                
+                // Apply the smoothed rotation
+                transform.Rotate(Vector3.up, currentRotationVelocity);
             }
 
             if (wobble)
             {
-                Vector3 wobbleForce = new Vector3(
-                    Mathf.Sin(Time.time * wobbleFrequency),
+                float wobbleOffsetAmount = strength * beatReactionIntensity * wobbleAmplitude * 0.01f;
+                Vector3 wobbleOffset = new Vector3(
+                    Mathf.Sin(Time.time * wobbleFrequency) * wobbleOffsetAmount,
                     0,
-                    Mathf.Cos(Time.time * wobbleFrequency * 0.7f)
-                ) * strength * beatReactionIntensity * 0.5f;
-                parentRotator.ApplyForce(wobbleForce);
+                    Mathf.Cos(Time.time * wobbleFrequency * 0.7f) * wobbleOffsetAmount
+                );
+                transform.position += wobbleOffset;
             }
         }
 
@@ -224,6 +251,8 @@ namespace AmbientRotator
             wobbleFrequency = Mathf.Clamp(wobbleFrequency, 0.1f, 10f);
             rotationForceMultiplier = Mathf.Clamp(rotationForceMultiplier, -10f, 10f);
             pulseHeight = Mathf.Clamp(pulseHeight, 0f, 1f);
+            wobbleAmplitude = Mathf.Clamp(wobbleAmplitude, 0f, 1f);
+            rotationSmoothness = Mathf.Clamp(rotationSmoothness, 0.01f, 0.5f);
 
             if (minBeatThreshold > maxBeatThreshold)
             {

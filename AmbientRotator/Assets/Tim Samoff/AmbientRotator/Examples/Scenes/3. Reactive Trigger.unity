@@ -275,18 +275,20 @@ MonoBehaviour:
   pushbackStrength: 2
   recoverySpeed: 3
   rotationRecovery: 2
-  targetLayers:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  reactToPlayer: 1
-  reactToProjectiles: 0
-  reactToPhysics: 0
+  triggerObjects:
+  - {fileID: 1248632743}
+  pulse: 0
+  pulseHeight: 0.2
   pushAway: 1
   attract: 0
-  spin: 0
-  spinSpeed: 5
+  rotate: 0
+  rotationForceMultiplier: 1
+  wobble: 0
+  wobbleFrequency: 2
+  wobbleAmplitude: 0.2
   showGizmos: 1
   gizmoColor: {r: 1, g: 0, b: 0, a: 1}
+  debugLogging: 1
 --- !u!1 &829675955
 GameObject:
   m_ObjectHideFlags: 0
@@ -299,6 +301,7 @@ GameObject:
   - component: {fileID: 829675957}
   - component: {fileID: 829675956}
   - component: {fileID: 829675959}
+  - component: {fileID: 829675960}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -424,6 +427,22 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
+--- !u!114 &829675960
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 829675955}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c49b4cc203aa6414fae5c798d1d0e7d6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.EventSystems.PhysicsRaycaster
+  m_EventMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_MaxRayIntersections: 0
 --- !u!1 &1248632743
 GameObject:
   m_ObjectHideFlags: 0
@@ -457,12 +476,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: AmbientRotator::DragObject
   enableInPlayMode: 1
-  enableInEditMode: 1
-  moveSpeed: 10
-  dragDistance: 5
-  layerMask:
-    serializedVersion: 2
-    m_Bits: 4294967295
   selectedColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   defaultColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!135 &1248632745

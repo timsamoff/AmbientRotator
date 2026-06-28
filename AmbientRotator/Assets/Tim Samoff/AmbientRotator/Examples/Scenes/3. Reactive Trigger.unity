@@ -205,7 +205,7 @@ Transform:
   m_GameObject: {fileID: 141112805}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: -5, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 1
   m_Children: []
@@ -223,13 +223,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ef7ee1bd333758a4abc8941eaf200a45, type: 3}
   m_Name: 
   m_EditorClassIdentifier: AmbientRotator::AmbientRotator.AmbientRotator
-  profile: 0
-  intensity: 0.3
-  speed: 0.3
+  profile: 3
+  intensity: 1.5
+  speed: 1
   phaseOffset: 3
-  maxAngle: {x: 30, y: 30, z: 30}
-  clampMovement: 1
-  decisionDuration: 4
+  maxAngle: {x: 360, y: 360, z: 360}
+  clampMovement: 0
+  decisionDuration: 2
   completeRotation: 1
   useStartDelay: 0
   startDelayMin: 2
@@ -245,8 +245,8 @@ MonoBehaviour:
   useUnscaledTime: 0
   autoStart: 1
   useLocalRotation: 1
-  smoothTime: 0.8
-  maxSpeed: 50
+  smoothTime: 0.3
+  maxSpeed: 150
   OnRotationChanged:
     m_PersistentCalls:
       m_Calls: []
@@ -272,20 +272,21 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: AmbientRotator::AmbientRotator.ReactiveTrigger
   reactionRadius: 5
-  pushbackStrength: 2
-  recoverySpeed: 3
-  rotationRecovery: 2
   triggerObjects:
   - {fileID: 1248632743}
   pulse: 0
-  pulseHeight: 0.2
-  pushAway: 1
-  attract: 0
-  rotate: 0
-  rotationForceMultiplier: 1
+  pulseHeight: 0.161
+  pulseSpeed: 2.81
+  rotate: 1
+  rotationForceMultiplier: 15
   wobble: 0
-  wobbleFrequency: 2
-  wobbleAmplitude: 0.2
+  wobbleFrequency: 10
+  wobbleAmplitude: 1
+  pushAway: 1
+  pushAwayStrength: 5
+  attract: 0
+  attractStrength: 5
+  returnSpeed: 10
   showGizmos: 1
   gizmoColor: {r: 1, g: 0, b: 0, a: 1}
   debugLogging: 1
@@ -456,6 +457,7 @@ GameObject:
   - component: {fileID: 1248632746}
   - component: {fileID: 1248632745}
   - component: {fileID: 1248632744}
+  - component: {fileID: 1248632749}
   m_Layer: 0
   m_Name: Trigger
   m_TagString: Untagged
@@ -565,12 +567,39 @@ Transform:
   m_GameObject: {fileID: 1248632743}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 7.53, y: 0, z: 0}
+  m_LocalPosition: {x: 6, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!54 &1248632749
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1248632743}
+  serializedVersion: 5
+  m_Mass: 1
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_CenterOfMass: {x: 0, y: 0, z: 0}
+  m_InertiaTensor: {x: 1, y: 1, z: 1}
+  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ImplicitCom: 1
+  m_ImplicitTensor: 1
+  m_UseGravity: 0
+  m_IsKinematic: 1
+  m_Interpolate: 0
+  m_Constraints: 0
+  m_CollisionDetection: 0
 --- !u!1 &1758767244
 GameObject:
   m_ObjectHideFlags: 0

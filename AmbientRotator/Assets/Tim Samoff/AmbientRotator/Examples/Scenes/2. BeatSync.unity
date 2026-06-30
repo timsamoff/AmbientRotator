@@ -218,7 +218,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 141112805}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ef7ee1bd333758a4abc8941eaf200a45, type: 3}
   m_Name: 
@@ -241,6 +241,9 @@ MonoBehaviour:
   secondaryProfile: {fileID: 0}
   blendWeight: 0.5
   blendSpeed: 0.5
+  influenceMode: 2
+  externalDecay: 0.95
+  maxExternalOffset: 45
   updateMethod: 0
   useUnscaledTime: 0
   autoStart: 1
@@ -277,15 +280,22 @@ MonoBehaviour:
   minBeatThreshold: 0.0005
   maxBeatThreshold: 0.005
   spectrumSamples: 128
-  beatCooldown: 0.01
-  pulse: 1
-  pulseHeight: 0.25
-  rotate: 1
-  rotationForceMultiplier: 7
-  rotationSmoothness: 0.1
-  wobble: 1
-  wobbleFrequency: 5
-  wobbleAmplitude: 0.2
+  reaction:
+    pulse: 0
+    pulseHeight: 0.5
+    pulseIntensity: 1
+    rotate: 0
+    maxRotationAngle: 15
+    rotationIntensity: 3
+    rotationSmoothness: 0.1
+    rotationAxis: {x: 0.57735026, y: 0.57735026, z: 0.57735026}
+    wobble: 0
+    wobbleAmount: 0.5
+    wobbleIntensity: 50
+    wobbleFrequency: 2
+    decaySpeed: 0.1
+    cooldown: 0.05
+  debugLogging: 1
 --- !u!1 &824672938
 GameObject:
   m_ObjectHideFlags: 0

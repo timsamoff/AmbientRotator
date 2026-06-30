@@ -25,79 +25,101 @@ namespace AmbientRotator
         LateUpdate
     }
 
+    public enum InfluenceMode
+    {
+        AmbientOnly,      // Normal ambient motion only
+        ExternalDriven,   // External forces override decisions
+        Blended          // External forces blend with decisions
+    }
+
     [RequireComponent(typeof(Transform))]
+    [CanEditMultipleObjects]
     public class AmbientRotator : MonoBehaviour
     {
-        [Tooltip("The motion style that defines the object's personality. Subtle = barely noticeable, Gentle = soft sway, Organic = natural and alive, Dynamic = bold and energetic, Chaotic = erratic and unpredictable, Custom = use your own defined profile.")]
+        [Header("Motion Profile")]
+        [Tooltip("The motion style that defines the object's personality.")]
         [SerializeField] private MotionProfile profile = MotionProfile.Gentle;
 
-        [Tooltip("How much the object moves. Higher values = more dramatic motion. Start with 1.0 and adjust from there.")]
+        [Tooltip("How much the object moves. Higher values = more dramatic motion.")]
         [SerializeField, Range(0f, 10f)] private float intensity = 1f;
 
-        [Tooltip("How fast the object moves. Higher values = faster motion. Start with 1.0 and adjust from there.")]
+        [Tooltip("How fast the object moves. Higher values = faster motion.")]
         [SerializeField, Range(0.1f, 10f)] private float speed = 1f;
 
-        [Tooltip("The starting point in the motion cycle. Use this to offset multiple objects so they move out of sync with each other. Negative values shift the motion backward.")]
+        [Tooltip("The starting point in the motion cycle. Use this to offset multiple objects.")]
         [SerializeField, Range(-360f, 360f)] private float phaseOffset = 0f;
 
-        [Tooltip("Maximum rotation angle in degrees for each axis (X, Y, Z). With 360, the object can complete full rotations. Each component is clamped between 0 and 360.")]
+        [Tooltip("Maximum rotation angle in degrees for each axis (X, Y, Z).")]
         [SerializeField] private Vector3 maxAngle = new Vector3(360f, 360f, 360f);
 
-        [Tooltip("When enabled, prevents the object from rotating beyond the Max Angle limits. Turn off for full 360-degree rotation.")]
+        [Tooltip("When enabled, prevents the object from rotating beyond the Max Angle limits.")]
         [SerializeField] private bool clampMovement = false;
 
-        [Tooltip("How long (in seconds) the object commits to a direction before changing its mind. Longer values = more deliberate, slower-changing motion.")]
+        [Tooltip("How long the object commits to a direction before changing its mind.")]
         [SerializeField, Range(0.1f, 10f)] private float decisionDuration = 3f;
 
-        [Tooltip("When enabled, the object fully completes its rotation before changing direction. When disabled, it changes direction mid-motion.")]
+        [Tooltip("When enabled, the object fully completes its rotation before changing direction.")]
         [SerializeField] private bool completeRotation = true;
 
-        [Tooltip("Enable to add a delay before the object starts moving. Useful for staggering multiple objects.")]
+        [Header("Start Delay")]
+        [Tooltip("Enable to add a delay before the object starts moving.")]
         [SerializeField] private bool useStartDelay = false;
 
-        [Tooltip("The minimum delay in seconds before the object starts moving. Only used when Randomize Start Delay is enabled.")]
+        [Tooltip("The minimum delay in seconds before the object starts moving.")]
         [SerializeField, Range(0f, 10f)] private float startDelayMin = 0.5f;
 
-        [Tooltip("The maximum delay in seconds before the object starts moving. Only used when Randomize Start Delay is enabled.")]
+        [Tooltip("The maximum delay in seconds before the object starts moving.")]
         [SerializeField, Range(0f, 10f)] private float startDelayMax = 2f;
 
-        [Tooltip("When enabled, the start delay is randomly chosen between Min and Max. When disabled, the delay is exactly the Min value.")]
+        [Tooltip("When enabled, the start delay is randomly chosen between Min and Max.")]
         [SerializeField] private bool randomizeStartDelay = false;
 
-        [Tooltip("Enable to use a custom motion profile defined with Animation Curves for complete control over motion.")]
+        [Header("Custom Profiles")]
+        [Tooltip("Enable to use a custom motion profile defined with Animation Curves.")]
         [SerializeField] private bool useCustomProfile = false;
 
-        [Tooltip("The custom motion profile asset that defines the object's movement. Create one via Assets > Create > Ambient Rotator > Custom Profile.")]
+        [Tooltip("The custom motion profile asset that defines the object's movement.")]
         [SerializeField] private CustomMotionProfile customProfile;
 
-        [Tooltip("Enable to blend between two custom profiles for more complex motion patterns.")]
+        [Tooltip("Enable to blend between two custom profiles for more complex motion.")]
         [SerializeField] private bool blendProfiles = false;
 
         [Tooltip("The secondary custom profile to blend with the primary one.")]
         [SerializeField] private CustomMotionProfile secondaryProfile;
 
-        [Tooltip("How much the secondary profile influences the motion. 0 = primary only, 0.5 = equal blend, 1 = secondary only.")]
+        [Tooltip("How much the secondary profile influences the motion.")]
         [SerializeField, Range(0f, 1f)] private float blendWeight = 0.5f;
 
-        [Tooltip("How fast the blend between profiles oscillates. Higher values = faster switching between profiles.")]
+        [Tooltip("How fast the blend between profiles oscillates.")]
         [SerializeField, Range(0f, 10f)] private float blendSpeed = 0.5f;
 
-        [Tooltip("Which Unity update method to use. Update = normal frame update, FixedUpdate = physics update, LateUpdate = after all other updates.")]
+        [Header("External Influence")]
+        [Tooltip("How external forces interact with ambient motion.")]
+        [SerializeField] private InfluenceMode influenceMode = InfluenceMode.Blended;
+
+        [Tooltip("How quickly external offsets decay. Lower = snappier, Higher = smoother.")]
+        [SerializeField, Range(0.01f, 0.99f)] private float externalDecay = 0.95f;
+
+        [Tooltip("Maximum external offset magnitude. Prevents instability.")]
+        [SerializeField, Range(0.1f, 90f)] private float maxExternalOffset = 45f;
+
+        [Header("Smoothing")]
+        [Tooltip("Which Unity update method to use.")]
         [SerializeField] private UpdateMethod updateMethod = UpdateMethod.Update;
 
-        [Tooltip("When enabled, motion continues even when the game is paused. Useful for UI animations or menu backgrounds.")]
+        [Tooltip("When enabled, motion continues even when the game is paused.")]
         [SerializeField] private bool useUnscaledTime = false;
 
-        [Tooltip("When enabled, the object starts moving automatically when the scene starts. Disable to control motion manually via script.")]
+        [Tooltip("When enabled, the object starts moving automatically when the scene starts.")]
         [SerializeField] private bool autoStart = true;
 
-        [Tooltip("When enabled, rotation is applied relative to the parent object. When disabled, rotation is applied in world space.")]
+        [Tooltip("When enabled, rotation is applied relative to the parent object.")]
         [SerializeField] private bool useLocalRotation = true;
 
-        [Tooltip("How smoothly the object transitions between positions. Higher values = smoother, more fluid motion. Lower values = snappier, more responsive motion.")]
+        [Tooltip("How smoothly the object transitions between positions.")]
         [SerializeField, Range(0.01f, 1f)] private float smoothTime = 1f;
 
-        [Tooltip("The maximum speed at which the object can move. Limits how fast the object can rotate. Higher values = faster motion.")]
+        [Tooltip("The maximum speed at which the object can move.")]
         [SerializeField, Range(0f, 1000f)] private float maxSpeed = 100f;
 
         [Header("Events")]
@@ -114,11 +136,12 @@ namespace AmbientRotator
         protected bool isPaused = false;
         protected Coroutine motionCoroutine;
 
-        protected Vector3 externalForce;
-        protected float externalForceDecay = 0.95f;
-
-        protected WindSystem windSystem;
-        protected bool windInitialized = false;
+        // --- External Influence State ---
+        private Vector3 externalPositionOffset;
+        private Vector3 externalRotationOffset;
+        private float externalSpeedMultiplier = 1f;
+        private Vector3 positionVelocity;
+        private Vector3 rotationVelocity;
 
         // --- Decision State ---
         private float currentDecisionTime = 0f;
@@ -127,11 +150,22 @@ namespace AmbientRotator
         private float actualStartDelay = 0f;
         private bool hasStarted = false;
 
+        // --- Wind System ---
+        protected WindSystemModule windSystem;
+        protected bool windInitialized = false;
+
+        // --- Track if preset was just applied ---
+        private bool isApplyingPreset = false;
+
         // --- Public Properties ---
         public bool IsPaused => isPaused;
         public MotionProfile CurrentProfile => profile;
         public float CurrentIntensity => intensity;
         public Vector3 CurrentOffset => currentOffset;
+        public Vector3 ExternalPositionOffset => externalPositionOffset;
+        public Vector3 ExternalRotationOffset => externalRotationOffset;
+        public float ExternalSpeedMultiplier => externalSpeedMultiplier;
+        
         public Vector3 MaxAngle { get => maxAngle; set => maxAngle = value; }
         public float SmoothTime { get => smoothTime; set => smoothTime = Mathf.Clamp(value, 0.01f, 1f); }
         public float Speed { get => speed; set => speed = Mathf.Clamp(value, 0.1f, 10f); }
@@ -139,40 +173,143 @@ namespace AmbientRotator
         public float DecisionDuration { get => decisionDuration; set => decisionDuration = Mathf.Max(0.1f, value); }
         public bool ClampMovement { get => clampMovement; set => clampMovement = value; }
         public float MaxSpeed { get => maxSpeed; set => maxSpeed = Mathf.Clamp(value, 0f, 1000f); }
+        public InfluenceMode CurrentInfluenceMode { get => influenceMode; set => influenceMode = value; }
 
-        public bool UseCustomProfile => useCustomProfile;
-        public CustomMotionProfile CustomProfile => customProfile;
-        public bool BlendProfiles => blendProfiles;
-        public CustomMotionProfile SecondaryProfile => secondaryProfile;
-        public float BlendWeight => blendWeight;
-        public float BlendSpeed => blendSpeed;
+        // --- External API for Modules ---
 
-        public void SetUseCustomProfile(bool value) => useCustomProfile = value;
-        public void SetBlendProfiles(bool value) => blendProfiles = value;
-        public void SetSecondaryProfile(CustomMotionProfile profile) => secondaryProfile = profile;
-        public void SetBlendWeight(float value) => blendWeight = Mathf.Clamp01(value);
-        public void SetBlendSpeed(float value) => blendSpeed = value;
+        // Adds a position offset to the object. Will decay over time.
+        public void AddPositionOffset(Vector3 offset)
+        {
+            externalPositionOffset += offset;
+            externalPositionOffset = Vector3.ClampMagnitude(externalPositionOffset, maxExternalOffset);
+        }
+
+        // Adds a rotation offset to the object. Will decay over time.
+        public void AddRotationOffset(Vector3 offset)
+        {
+            externalRotationOffset += offset;
+            externalRotationOffset = Vector3.ClampMagnitude(externalRotationOffset, maxExternalOffset);
+        }
+
+        // Sets the speed multiplier for external influences.
+        public void SetSpeedMultiplier(float multiplier)
+        {
+            externalSpeedMultiplier = Mathf.Clamp(multiplier, 0.1f, 10f);
+        }
+
+        // Applies a force to the object (for backward compatibility).
+        public void ApplyForce(Vector3 force)
+        {
+            externalPositionOffset += force * Time.deltaTime;
+            externalPositionOffset = Vector3.ClampMagnitude(externalPositionOffset, maxExternalOffset);
+        }
+
+        // Resets all external influences to zero.
+        public void ResetExternalInfluences()
+        {
+            externalPositionOffset = Vector3.zero;
+            externalRotationOffset = Vector3.zero;
+            externalSpeedMultiplier = 1f;
+            positionVelocity = Vector3.zero;
+            rotationVelocity = Vector3.zero;
+        }
+
+        // Gradually returns to the base state.
+        public void ReturnToBase(float speed = 1f)
+        {
+            if (motionCoroutine != null)
+                StartCoroutine(ReturnCoroutine(speed));
+        }
+
+        private IEnumerator ReturnCoroutine(float speed)
+        {
+            while (externalPositionOffset.magnitude > 0.01f || 
+                   externalRotationOffset.magnitude > 0.01f ||
+                   Mathf.Abs(externalSpeedMultiplier - 1f) > 0.01f)
+            {
+                externalPositionOffset = Vector3.Lerp(externalPositionOffset, Vector3.zero, Time.deltaTime * speed);
+                externalRotationOffset = Vector3.Lerp(externalRotationOffset, Vector3.zero, Time.deltaTime * speed);
+                externalSpeedMultiplier = Mathf.Lerp(externalSpeedMultiplier, 1f, Time.deltaTime * speed);
+                yield return null;
+            }
+        }
+
+        public void SetProfile(MotionProfile newProfile)
+        {
+            isApplyingPreset = true;
+            profile = newProfile;
+            ApplyPresetValues();
+            isApplyingPreset = false;
+        }
+
+        public void SetIntensity(float newIntensity)
+        {
+            intensity = Mathf.Clamp(newIntensity, 0f, 10f);
+            if (!isApplyingPreset && profile != MotionProfile.Custom)
+            {
+                profile = MotionProfile.Custom;
+            }
+        }
+        
+        public void SetSpeed(float newSpeed)
+        {
+            speed = Mathf.Clamp(newSpeed, 0.1f, 10f);
+            if (!isApplyingPreset && profile != MotionProfile.Custom)
+            {
+                profile = MotionProfile.Custom;
+            }
+        }
+
+        public void SetCustomProfile(CustomMotionProfile profile)
+        {
+            customProfile = profile;
+            useCustomProfile = profile != null;
+        }
+
+        public void SetProfileBlending(CustomMotionProfile profile, float weight)
+        {
+            secondaryProfile = profile;
+            blendWeight = Mathf.Clamp01(weight);
+            blendProfiles = profile != null && weight > 0;
+        }
+
+        public void ResetToInitial()
+        {
+            if (useLocalRotation) cachedTransform.localRotation = initialRotation;
+            else cachedTransform.rotation = initialRotation;
+            currentOffset = Vector3.zero;
+            ResetExternalInfluences();
+            MakeNewDecision();
+        }
 
         // --- Unity Lifecycle ---
+
         protected virtual void Awake()
         {
             cachedTransform = transform;
             initialRotation = useLocalRotation ? cachedTransform.localRotation : cachedTransform.rotation;
-            phaseOffset = Random.Range(0f, 360f);
+            
+            // Randomize phase offset if not set
+            if (phaseOffset == 0f)
+                phaseOffset = Random.Range(0f, 360f);
 
+            // Find wind system
             if (windSystem == null)
             {
-                windSystem = FindAnyObjectByType<WindSystem>();
+                windSystem = FindAnyObjectByType<WindSystemModule>();
                 windInitialized = windSystem != null;
             }
 
-            ApplyPresetValues();
+            // Only apply presets at startup if not Custom
+            if (profile != MotionProfile.Custom)
+            {
+                ApplyPresetValues();
+            }
             MakeNewDecision();
         }
 
         private void OnValidate()
         {
-            // Clamp maxAngle components between 0 and 360
             maxAngle.x = Mathf.Clamp(maxAngle.x, 0f, 360f);
             maxAngle.y = Mathf.Clamp(maxAngle.y, 0f, 360f);
             maxAngle.z = Mathf.Clamp(maxAngle.z, 0f, 360f);
@@ -180,6 +317,8 @@ namespace AmbientRotator
             if (startDelayMin < 0f) startDelayMin = 0f;
             if (startDelayMax < startDelayMin) startDelayMax = startDelayMin;
             maxSpeed = Mathf.Clamp(maxSpeed, 0f, 1000f);
+            externalDecay = Mathf.Clamp(externalDecay, 0.01f, 0.99f);
+            maxExternalOffset = Mathf.Clamp(maxExternalOffset, 0.1f, 90f);
         }
 
         public void ApplyPresetValues()
@@ -265,7 +404,6 @@ namespace AmbientRotator
             }
         }
 
-        // --- Public API ---
         public void StartMotion()
         {
             if (motionCoroutine != null) StopCoroutine(motionCoroutine);
@@ -299,45 +437,14 @@ namespace AmbientRotator
             }
         }
 
-        public void SetProfile(MotionProfile newProfile)
-        {
-            profile = newProfile;
-            ApplyPresetValues();
-        }
-
-        public void SetIntensity(float newIntensity) => intensity = Mathf.Clamp(newIntensity, 0f, 10f);
-        public void SetSpeed(float newSpeed) => speed = Mathf.Clamp(newSpeed, 0.1f, 10f);
-
-        public void SetCustomProfile(CustomMotionProfile profile)
-        {
-            customProfile = profile;
-            useCustomProfile = profile != null;
-        }
-
-        public void SetProfileBlending(CustomMotionProfile profile, float weight)
-        {
-            secondaryProfile = profile;
-            blendWeight = Mathf.Clamp01(weight);
-            blendProfiles = profile != null && weight > 0;
-        }
-
-        public void ApplyForce(Vector3 force)
-        {
-            externalForce += force;
-            externalForce = Vector3.ClampMagnitude(externalForce, 45f);
-        }
-
-        public void ResetToInitial()
-        {
-            if (useLocalRotation) cachedTransform.localRotation = initialRotation;
-            else cachedTransform.rotation = initialRotation;
-            currentOffset = Vector3.zero;
-            MakeNewDecision();
-        }
-
         // --- Internal Logic ---
+
         private void MakeNewDecision()
         {
+            if (influenceMode == InfluenceMode.ExternalDriven && 
+                externalPositionOffset.magnitude > 0.1f)
+                return;
+
             Vector3 newTarget = new Vector3(
                 Random.Range(-maxAngle.x, maxAngle.x),
                 Random.Range(-maxAngle.y, maxAngle.y),
@@ -372,36 +479,64 @@ namespace AmbientRotator
 
         protected virtual void UpdateMotion()
         {
-            currentDecisionTime += Time.deltaTime;
+            float deltaTime = useUnscaledTime ? Time.unscaledDeltaTime : Time.deltaTime;
+            float time = (useUnscaledTime ? Time.unscaledTime : Time.time) * speed + phaseOffset;
+
+            // --- Calculate base ambient motion ---
+            currentDecisionTime += deltaTime;
             if (currentDecisionTime >= decisionDuration) MakeNewDecision();
 
-            float time = (useUnscaledTime ? Time.unscaledTime : Time.time) * speed + phaseOffset;
             float decisionProgress = Mathf.Clamp01(currentDecisionTime / decisionDuration);
 
             Vector3 targetOffset = completeRotation
                 ? Vector3.Lerp(previousDecisionTarget, currentDecisionTarget, Mathf.SmoothStep(0f, 1f, decisionProgress))
                 : CalculateMotion(time);
 
+            // --- Apply external speed modulation ---
+            float effectiveSpeed = speed * externalSpeedMultiplier;
+            
+            // Recalculate time with effective speed for smooth transitions
+            float effectiveTime = (useUnscaledTime ? Time.unscaledTime : Time.time) * effectiveSpeed + phaseOffset;
+
+            // --- Apply wind ---
             if (windInitialized && windSystem != null)
+            {
                 targetOffset += windSystem.GetWindForce(cachedTransform.position) * 0.01f;
-
-            if (externalForce.magnitude > 0.01f)
-            {
-                targetOffset += externalForce * Time.deltaTime;
-                externalForce *= externalForceDecay;
-            }
-            else
-            {
-                externalForce = Vector3.zero;
             }
 
+            // --- Apply external position offset ---
+            targetOffset += externalPositionOffset;
+
+            // --- Clamp if needed ---
             if (clampMovement)
                 targetOffset = Vector3.ClampMagnitude(targetOffset, maxAngle.magnitude);
 
+            // --- Smooth position ---
             float smoothSpeed = Mathf.Min(1f / smoothTime, maxSpeed);
-            currentOffset = Vector3.Lerp(currentOffset, targetOffset, Time.deltaTime * smoothSpeed);
+            currentOffset = Vector3.SmoothDamp(
+                currentOffset,
+                targetOffset,
+                ref positionVelocity,
+                smoothTime,
+                maxSpeed,
+                deltaTime
+            );
 
-            Quaternion targetQuat = initialRotation * Quaternion.Euler(currentOffset);
+            // --- Decay external influences ---
+            externalPositionOffset *= externalDecay;
+            externalRotationOffset *= externalDecay;
+            externalSpeedMultiplier = Mathf.Lerp(externalSpeedMultiplier, 1f, deltaTime * 5f);
+
+            // Clamp to prevent instability
+            externalPositionOffset = Vector3.ClampMagnitude(externalPositionOffset, maxExternalOffset);
+            externalRotationOffset = Vector3.ClampMagnitude(externalRotationOffset, maxExternalOffset);
+
+            // --- Compose final rotation ---
+            Quaternion baseQuat = initialRotation * Quaternion.Euler(currentOffset);
+            Quaternion externalQuat = Quaternion.Euler(externalRotationOffset);
+            Quaternion targetQuat = baseQuat * externalQuat;
+
+            // --- Apply rotation ---
             if (useLocalRotation)
                 cachedTransform.localRotation = targetQuat;
             else
@@ -468,31 +603,80 @@ namespace AmbientRotator
             return result;
         }
 
-        #if UNITY_EDITOR
+#if UNITY_EDITOR
         private void OnDrawGizmosSelected()
+        {
+            // Only draw gizmos if this specific object is selected
+            // Prevents drawing for all objects when multiple are selected
+            if (!UnityEditor.Selection.Contains(gameObject)) return;
+            
+            // Limit gizmo drawing to prevent graphics ring buffer overflow
+            // Only draw detailed gizmos when few objects are selected
+            int selectedCount = UnityEditor.Selection.gameObjects.Length;
+            if (selectedCount > 5) 
+            {
+                // Draw simplified gizmos when many objects are selected
+                DrawSimpleGizmos();
+                return;
+            }
+            
+            DrawDetailedGizmos();
+        }
+
+        private void DrawSimpleGizmos()
         {
             Transform t = gameObject.transform;
             if (t == null) return;
             
             Vector3 pos = t.position;
+            float radius = CalculateGizmoRadius() * 0.5f;
             
-            // --- Calculate radius based on object's visual size ---
+            // Only draw wireframe arcs, no solid arcs (much cheaper)
+            Handles.color = new Color(1f, 0f, 0f, 0.1f);
+            Handles.DrawWireArc(pos, t.right, t.up, maxAngle.x, radius);
+            Handles.DrawWireArc(pos, t.right, t.up, -maxAngle.x, radius);
+            
+            Handles.color = new Color(0f, 1f, 0f, 0.1f);
+            Handles.DrawWireArc(pos, t.up, t.forward, maxAngle.y, radius);
+            Handles.DrawWireArc(pos, t.up, t.forward, -maxAngle.y, radius);
+            
+            Handles.color = new Color(0f, 0.5f, 1f, 0.1f);
+            Handles.DrawWireArc(pos, t.forward, t.up, maxAngle.z, radius);
+            Handles.DrawWireArc(pos, t.forward, t.up, -maxAngle.z, radius);
+            
+            // Draw a small axis indicator
+            Gizmos.color = Color.red;
+            Gizmos.DrawRay(pos, t.right * radius * 0.5f);
+            Gizmos.color = Color.green;
+            Gizmos.DrawRay(pos, t.up * radius * 0.5f);
+            Gizmos.color = Color.blue;
+            Gizmos.DrawRay(pos, t.forward * radius * 0.5f);
+        }
+
+        private void DrawDetailedGizmos()
+        {
+            Transform t = gameObject.transform;
+            if (t == null) return;
+            
+            Vector3 pos = t.position;
             float radius = CalculateGizmoRadius();
             
-            // --- Solid translucent discs using Handles ---
+            // X-axis arcs
             Handles.color = new Color(1f, 0f, 0f, 0.05f);
             Handles.DrawSolidArc(pos, t.right, t.up, maxAngle.x, radius);
             Handles.DrawSolidArc(pos, t.right, t.up, -maxAngle.x, radius);
             
+            // Y-axis arcs
             Handles.color = new Color(0f, 1f, 0f, 0.05f);
             Handles.DrawSolidArc(pos, t.up, t.forward, maxAngle.y, radius);
             Handles.DrawSolidArc(pos, t.up, t.forward, -maxAngle.y, radius);
             
+            // Z-axis arcs
             Handles.color = new Color(0f, 0.5f, 1f, 0.05f);
             Handles.DrawSolidArc(pos, t.forward, t.up, maxAngle.z, radius);
             Handles.DrawSolidArc(pos, t.forward, t.up, -maxAngle.z, radius);
             
-            // --- Wireframe arcs on top ---
+            // Wireframe arcs on top
             Handles.color = new Color(1f, 0f, 0f, 0.025f);
             Handles.DrawWireArc(pos, t.right, t.up, maxAngle.x, radius);
             Handles.DrawWireArc(pos, t.right, t.up, -maxAngle.x, radius);
@@ -508,34 +692,30 @@ namespace AmbientRotator
 
         private float CalculateGizmoRadius()
         {
-            // --- Method 1: Use Renderer bounds (most accurate) ---
             Renderer renderer = GetComponent<Renderer>();
             if (renderer != null)
             {
                 float boundsSize = renderer.bounds.size.magnitude;
-                return boundsSize * 0.5f; // x the object's visual size
+                return Mathf.Max(boundsSize * 0.5f, 0.1f);
             }
             
-            // --- Method 2: Use Mesh bounds (if no renderer) ---
             MeshFilter meshFilter = GetComponent<MeshFilter>();
             if (meshFilter != null && meshFilter.sharedMesh != null)
             {
                 float meshSize = meshFilter.sharedMesh.bounds.size.magnitude;
-                return meshSize * 1.5f * 0.8f; // Adjust for consistent sizing
+                return Mathf.Max(meshSize * 1.5f * 0.8f, 0.1f);
             }
             
-            // --- Method 3: Use Collider bounds (if no mesh/renderer) ---
             Collider collider = GetComponent<Collider>();
             if (collider != null)
             {
                 float colliderSize = collider.bounds.size.magnitude;
-                return colliderSize * 1.5f;
+                return Mathf.Max(colliderSize * 1.5f, 0.1f);
             }
             
-            // --- Fallback: Use transform scale (if nothing else) ---
             float scale = Mathf.Max(transform.lossyScale.x, transform.lossyScale.y, transform.lossyScale.z);
-            return scale * 1.5f;
+            return Mathf.Max(scale * 1.5f, 0.1f);
         }
-        #endif
+#endif
     }
 }

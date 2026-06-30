@@ -10,7 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2517071683032917409}
   - component: {fileID: 5927961700657517256}
-  - component: {fileID: 39058099395660991}
+  - component: {fileID: 6677446431026427958}
   m_Layer: 0
   m_Name: GrassParent
   m_TagString: Untagged
@@ -47,10 +47,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: AmbientRotator::AmbientRotator.AmbientRotator
   profile: 0
-  intensity: 0.3
-  speed: 0.3
+  intensity: 0.1
+  speed: 0.2
   phaseOffset: 0
-  maxAngle: {x: 30, y: 0, z: 30}
+  maxAngle: {x: 10, y: 0, z: 10}
   clampMovement: 1
   decisionDuration: 4
   completeRotation: 1
@@ -64,6 +64,9 @@ MonoBehaviour:
   secondaryProfile: {fileID: 0}
   blendWeight: 0.5
   blendSpeed: 0.5
+  influenceMode: 2
+  externalDecay: 0.95
+  maxExternalOffset: 45
   updateMethod: 0
   useUnscaledTime: 0
   autoStart: 1
@@ -82,7 +85,7 @@ MonoBehaviour:
   OnResume:
     m_PersistentCalls:
       m_Calls: []
---- !u!114 &39058099395660991
+--- !u!114 &6677446431026427958
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -91,20 +94,12 @@ MonoBehaviour:
   m_GameObject: {fileID: 2074878402967523659}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d8fd2f0276d650c4eb2e77aeadc74919, type: 3}
+  m_Script: {fileID: 11500000, guid: ea98113928b8b804a950b06d652e5eab, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: AmbientRotator::AmbientRotator.WindSystem
-  baseStrength: 0.5
-  gustFrequency: 2
-  gustAmplitude: 0.3
-  baseDirection: {x: 1, y: 0, z: 0}
-  turbulence: 0.2
-  turbulenceFrequency: 0.5
-  turbulenceScale: 0.05
-  showDebugArrow: 1
-  arrowColor: {r: 1, g: 1, b: 1, a: 1}
-  arrowLength: 2
-  windZones: []
+  m_EditorClassIdentifier: AmbientRotator::AmbientRotator.WindAffectedObject
+  sensitivity: 1
+  multiplier: 2.39
+  randomOffset: 0
 --- !u!1 &2084677027836234353
 GameObject:
   m_ObjectHideFlags: 0

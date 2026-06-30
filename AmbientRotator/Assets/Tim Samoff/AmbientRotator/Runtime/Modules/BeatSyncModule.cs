@@ -1,236 +1,149 @@
 using UnityEngine;
-using System.Collections;
-
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
 
 namespace AmbientRotator
 {
+    /// <summary>
+    /// Attach to objects with AmbientRotator. Listens for BeatSyncObject sources nearby.
+    /// Applies whatever reaction the source defines.
+    /// </summary>
+    [AddComponentMenu("Ambient Rotator/Beat Sync Module")]
+    [RequireComponent(typeof(AmbientRotator))]
     public class BeatSyncModule : MonoBehaviour
     {
-        [Header("Audio Source")]
-        [SerializeField]
-        private AudioSource musicSource;
-
-        [Header("Reaction Intensity")]
-        [SerializeField]
-        [Range(0f, 100f)]
-        [Tooltip("How strongly the object reacts to each beat.")]
-        private float beatReactionIntensity = 50f;
-
-        [SerializeField]
-        [Range(0.001f, 2f)]
-        [Tooltip("How smoothly the beat detection transitions.")]
-        private float beatSmoothing = 0.05f;
-
-        [Header("Beat Detection")]
-        [SerializeField]
-        [Range(0f, 0.01f)]
-        [Tooltip("Minimum audio level to register as a beat.")]
-        private float minBeatThreshold = 0.0001f;
-
-        [SerializeField]
-        [Range(0f, 0.01f)]
-        [Tooltip("Maximum audio level for a beat.")]
-        private float maxBeatThreshold = 0.001f;
-
-        [SerializeField]
-        [Range(16, 512)]
-        [Tooltip("Number of audio samples to analyze. Must be power of 2.")]
-        private int spectrumSamples = 256;
-
-        [Header("Reaction Configuration")]
-        [SerializeField]
-        [Tooltip("How the object reacts to beats.")]
-        private MotionReaction reaction = new MotionReaction();
+        [Header("Filter Settings")]
+        [Tooltip("Only react to sources with this tag. Leave 'Untagged' to react to all sources.")]
+        [SerializeField] private string sourceTag = "Untagged";
 
         [Header("Debug")]
-        [SerializeField]
-        [Tooltip("Enable debug logging.")]
-        private bool debugLogging = true;
+        [SerializeField] private bool debugLogging = false;
 
-        // --- Runtime State ---
         private AmbientRotator parentRotator;
-        private float[] spectrumData;
-        private float currentBeatStrength;
-        private float smoothedBeat;
-        private float lastBeatTime;
+        private Transform cachedTransform;
+        private float pulseTimer = 0f;
 
-        // --- Public Properties ---
-        public MotionReaction Reaction => reaction;
-        public float CurrentBeatStrength => currentBeatStrength;
+        // Accumulated effects
+        private Vector3 accumulatedPulseOffset = Vector3.zero;
+        private Vector3 accumulatedRotationOffset = Vector3.zero;
+        private Vector3 accumulatedWobbleOffset = Vector3.zero;
+
+        // Rotation smoothing for beat sync
+        private float currentRotationSpeed = 0f;
+        private float targetRotationSpeed = 0f;
 
         private void Start()
         {
             parentRotator = GetComponent<AmbientRotator>();
-            spectrumData = new float[spectrumSamples];
+            cachedTransform = transform;
 
             if (parentRotator == null)
             {
                 Debug.LogError($"BeatSyncModule: No AmbientRotator component found on {gameObject.name}!");
-                return;
-            }
-
-            reaction.Validate();
-            reaction.ResetSmoothing();
-
-            if (musicSource == null)
-            {
-                musicSource = FindAnyObjectByType<AudioSource>();
-                if (musicSource == null)
-                {
-                    Debug.LogError("BeatSyncModule: No AudioSource found in scene!");
-                    return;
-                }
-            }
-
-            if (musicSource.clip == null)
-            {
-                Debug.LogError($"BeatSyncModule: AudioSource on '{musicSource.gameObject.name}' has no AudioClip!");
-                return;
-            }
-
-            if (!musicSource.isPlaying && !musicSource.playOnAwake)
-            {
-                Debug.LogWarning($"BeatSyncModule: AudioSource on '{musicSource.gameObject.name}' is not playing.");
-                musicSource.Play();
-            }
-
-            if (debugLogging)
-            {
-                Debug.Log($"=== BeatSyncModule Initialized ===");
-                Debug.Log($"Audio: {musicSource.clip.name}");
-                Debug.Log($"Beat Intensity: {beatReactionIntensity}");
-                Debug.Log($"Pulse: {reaction.pulse}, Height: {reaction.pulseHeight}, Intensity: {reaction.pulseIntensity}");
-                Debug.Log($"Rotate: {reaction.rotate}, Max Angle: {reaction.maxRotationAngle}°, Intensity: {reaction.rotationIntensity}");
-                Debug.Log($"Wobble: {reaction.wobble}, Amount: {reaction.wobbleAmount}, Intensity: {reaction.wobbleIntensity}, Freq: {reaction.wobbleFrequency}");
             }
         }
 
         private void Update()
         {
-            // If no reactions are active, skip all processing
-            if (!reaction.IsAnyReactionActive())
+            if (parentRotator == null) return;
+
+            BeatSyncObject[] sources = FindObjectsByType<BeatSyncObject>(FindObjectsInactive.Exclude);
+            
+            foreach (var source in sources)
             {
-                currentBeatStrength = 0f;
-                smoothedBeat = 0f;
-                lastBeatTime = 0f;
-                return;
-            }
-
-            if (parentRotator == null || musicSource == null || !musicSource.isPlaying)
-            {
-                return;
-            }
-
-            musicSource.GetSpectrumData(spectrumData, 0, FFTWindow.Blackman);
-
-            float rawAverage = GetRawAverage();
-            float beatStrength = DetectBeat(rawAverage);
-            smoothedBeat = Mathf.Lerp(smoothedBeat, beatStrength, Time.deltaTime / beatSmoothing);
-            currentBeatStrength = smoothedBeat;
-
-            // Trigger on beat
-            if (currentBeatStrength > 0.2f && Time.time - lastBeatTime > reaction.cooldown)
-            {
-                if (debugLogging)
+                // Filter by tag if specified
+                if (!string.IsNullOrEmpty(sourceTag) && sourceTag != "Untagged")
                 {
-                    Debug.Log($"🎵 BEAT! Strength: {currentBeatStrength:F2}, Raw: {rawAverage:F6}");
+                    if (!source.CompareTag(sourceTag)) continue;
                 }
-                OnBeatDetected(currentBeatStrength);
-                lastBeatTime = Time.time;
+
+                float distance = Vector3.Distance(cachedTransform.position, source.Position);
+                if (distance > source.InfluenceRadius) continue;
+
+                if (source.IsBeatDetected())
+                {
+                    float strength = source.GetStrengthAtPosition(cachedTransform.position);
+                    ApplyReaction(source.Reaction, strength);
+                    source.ConsumeBeat();
+
+                    if (debugLogging)
+                    {
+                        Debug.Log($"Beat from {source.name} at strength {strength:F2}");
+                    }
+                }
             }
+
+            ApplyAccumulatedEffects();
         }
 
-        private float GetRawAverage()
-        {
-            float sum = 0f;
-            for (int i = 0; i < spectrumData.Length; i++)
-            {
-                sum += spectrumData[i];
-            }
-            return sum / spectrumData.Length;
-        }
-
-        private float DetectBeat(float rawAverage)
-        {
-            return Mathf.InverseLerp(minBeatThreshold, maxBeatThreshold, rawAverage);
-        }
-
-        private void OnBeatDetected(float strength)
+        private void ApplyReaction(ReactionConfig reaction, float strength)
         {
             if (parentRotator == null) return;
-            if (!reaction.IsAnyReactionActive()) return;
 
-            // Scale strength by intensity (0-100 maps to 0-10)
-            float scaledStrength = strength * (beatReactionIntensity / 10f);
-            
-            if (debugLogging)
+            float scaledStrength = strength * 0.5f;
+
+            // --- Pulse ---
+            if (reaction.pulse && reaction.pulseHeight > 0.01f && reaction.pulseIntensity > 0.01f)
             {
-                Debug.Log($"  Applying reaction with scaled strength: {scaledStrength:F2}");
-                Debug.Log($"  Pulse: {reaction.pulse}, Rotate: {reaction.rotate}, Wobble: {reaction.wobble}");
-            }
-            
-            // Apply the reaction as offsets to AmbientRotator
-            reaction.ApplyImpulse(parentRotator, scaledStrength);
-        }
-
-        public void SetAudioSource(AudioSource source) => musicSource = source;
-        public void SetBeatIntensity(float intensity) => beatReactionIntensity = Mathf.Clamp(intensity, 0f, 100f);
-        public bool IsBeatDetected() => currentBeatStrength > 0.2f;
-        
-        public void SetReaction(MotionReaction newReaction)
-        {
-            if (newReaction != null)
-            {
-                reaction = newReaction.Clone();
-                reaction.Validate();
-                reaction.ResetSmoothing();
-            }
-        }
-
-        private void OnValidate()
-        {
-            beatReactionIntensity = Mathf.Clamp(beatReactionIntensity, 0f, 100f);
-            beatSmoothing = Mathf.Clamp(beatSmoothing, 0.001f, 2f);
-            minBeatThreshold = Mathf.Clamp(minBeatThreshold, 0f, 0.01f);
-            maxBeatThreshold = Mathf.Clamp(maxBeatThreshold, 0f, 0.01f);
-            spectrumSamples = Mathf.Clamp(spectrumSamples, 16, 512);
-
-            if (minBeatThreshold > maxBeatThreshold)
-            {
-                maxBeatThreshold = minBeatThreshold + 0.0001f;
+                float intensityMultiplier = reaction.pulseIntensity / 50f;
+                float targetHeight = scaledStrength * reaction.pulseHeight * intensityMultiplier;
+                
+                pulseTimer += Time.deltaTime * reaction.pulseSpeed;
+                float pulseValue = Mathf.Sin(pulseTimer) * targetHeight;
+                
+                accumulatedPulseOffset += Vector3.up * pulseValue * Time.deltaTime * 4f;
             }
 
-            if (!IsPowerOfTwo(spectrumSamples))
+            // --- Rotation - Uses baseRotationSpeed directly (no intensity) ---
+            if (reaction.rotate && reaction.baseRotationSpeed > 0.01f)
             {
-                spectrumSamples = NextPowerOfTwo(spectrumSamples);
+                // Calculate target rotation speed based on beat strength
+                targetRotationSpeed = reaction.baseRotationSpeed * scaledStrength * 0.1f;
+                
+                // Smooth the rotation speed using transition time
+                float transitionSpeed = 1f / Mathf.Max(reaction.rotationTransitionTime, 0.01f);
+                currentRotationSpeed = Mathf.Lerp(currentRotationSpeed, targetRotationSpeed, Time.deltaTime * transitionSpeed * 5f);
+                
+                Vector3 axis = reaction.RotationAxis;
+                accumulatedRotationOffset += axis * currentRotationSpeed * Time.deltaTime;
             }
 
-            if (spectrumData == null || spectrumData.Length != spectrumSamples)
+            // --- Wobble ---
+            if (reaction.wobble && reaction.wobbleAmount > 0.01f && reaction.wobbleIntensity > 0.01f)
             {
-                spectrumData = new float[spectrumSamples];
-            }
-
-            if (reaction != null)
-            {
-                reaction.Validate();
+                float intensityMultiplier = reaction.wobbleIntensity / 50f;
+                float wobbleScale = scaledStrength * reaction.wobbleAmount * intensityMultiplier * 0.15f;
+                
+                float wobbleX = Mathf.Sin(Time.time * reaction.wobbleFrequency) * wobbleScale;
+                float wobbleZ = Mathf.Cos(Time.time * reaction.wobbleFrequency * 0.7f + 1.2f) * wobbleScale;
+                
+                accumulatedWobbleOffset += new Vector3(wobbleX, 0, wobbleZ) * Time.deltaTime * 4f;
             }
         }
 
-        private bool IsPowerOfTwo(int x) => (x & (x - 1)) == 0;
-
-        private int NextPowerOfTwo(int x)
+        private void ApplyAccumulatedEffects()
         {
-            x--;
-            x |= x >> 1;
-            x |= x >> 2;
-            x |= x >> 4;
-            x |= x >> 8;
-            x |= x >> 16;
-            x++;
-            return x;
+            if (parentRotator == null) return;
+
+            if (accumulatedPulseOffset.magnitude > 0.0001f)
+            {
+                parentRotator.AddPositionOffset(accumulatedPulseOffset);
+                accumulatedPulseOffset *= 0.95f;
+            }
+
+            if (accumulatedWobbleOffset.magnitude > 0.0001f)
+            {
+                parentRotator.AddPositionOffset(accumulatedWobbleOffset);
+                accumulatedWobbleOffset *= 0.95f;
+            }
+
+            if (accumulatedRotationOffset.magnitude > 0.0001f)
+            {
+                parentRotator.AddRotationOffset(accumulatedRotationOffset);
+                accumulatedRotationOffset *= 0.95f;
+            }
+
+            accumulatedPulseOffset = Vector3.ClampMagnitude(accumulatedPulseOffset, 10f);
+            accumulatedWobbleOffset = Vector3.ClampMagnitude(accumulatedWobbleOffset, 10f);
+            accumulatedRotationOffset = Vector3.ClampMagnitude(accumulatedRotationOffset, 45f);
         }
     }
 }

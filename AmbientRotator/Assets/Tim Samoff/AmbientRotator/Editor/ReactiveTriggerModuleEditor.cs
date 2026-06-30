@@ -7,28 +7,12 @@ namespace AmbientRotator
     [CustomEditor(typeof(ReactiveTriggerModule))]
     public class ReactiveTriggerModuleEditor : Editor
     {
-        private SerializedProperty reactionRadius;
-        private SerializedProperty triggerObjects;
-        private SerializedProperty reaction;
-        private SerializedProperty pushAway;
-        private SerializedProperty pushAwayStrength;
-        private SerializedProperty attract;
-        private SerializedProperty attractStrength;
-        private SerializedProperty showGizmos;
-        private SerializedProperty gizmoColor;
+        private SerializedProperty sourceTag;
         private SerializedProperty debugLogging;
 
         private void OnEnable()
         {
-            reactionRadius = serializedObject.FindProperty("reactionRadius");
-            triggerObjects = serializedObject.FindProperty("triggerObjects");
-            reaction = serializedObject.FindProperty("reaction");
-            pushAway = serializedObject.FindProperty("pushAway");
-            pushAwayStrength = serializedObject.FindProperty("pushAwayStrength");
-            attract = serializedObject.FindProperty("attract");
-            attractStrength = serializedObject.FindProperty("attractStrength");
-            showGizmos = serializedObject.FindProperty("showGizmos");
-            gizmoColor = serializedObject.FindProperty("gizmoColor");
+            sourceTag = serializedObject.FindProperty("sourceTag");
             debugLogging = serializedObject.FindProperty("debugLogging");
         }
 
@@ -37,45 +21,28 @@ namespace AmbientRotator
             serializedObject.Update();
 
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Reactive Trigger", EditorStyles.boldLabel);
-
-            // Trigger Settings
-            EditorGUILayout.LabelField("Trigger Settings", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(reactionRadius);
-            EditorGUILayout.PropertyField(triggerObjects, new GUIContent("Trigger Objects"), true);
-
-            EditorGUILayout.Space();
-
-            // Reaction Configuration (shared with BeatSyncModule)
-            EditorGUILayout.LabelField("Reaction Configuration", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(reaction, new GUIContent("Reaction Settings"), true);
+            EditorGUILayout.LabelField("Reactive Trigger Module (Listener)", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox(
+                "Listens for nearby ReactiveTriggerObject sources.\n" +
+                "The reaction is defined on the ReactiveTriggerObject.", 
+                MessageType.Info);
 
             EditorGUILayout.Space();
-
-            // Push/Attract (unique to ReactiveTrigger)
-            EditorGUILayout.LabelField("Push/Attract", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(pushAway);
-            if (pushAway.boolValue)
+            EditorGUILayout.LabelField("Filter Settings", EditorStyles.boldLabel);
+            
+            string currentTag = sourceTag.stringValue;
+            string newTag = EditorGUILayout.TagField("Source Tag", currentTag);
+            if (newTag != currentTag)
             {
-                EditorGUI.indentLevel++;
-                EditorGUILayout.PropertyField(pushAwayStrength);
-                EditorGUI.indentLevel--;
+                sourceTag.stringValue = newTag;
             }
-
-            EditorGUILayout.PropertyField(attract);
-            if (attract.boolValue)
-            {
-                EditorGUI.indentLevel++;
-                EditorGUILayout.PropertyField(attractStrength);
-                EditorGUI.indentLevel--;
-            }
+            
+            EditorGUILayout.HelpBox(
+                "Leave 'Untagged' to react to all sources. Select a tag to only react to sources with that tag.", 
+                MessageType.None);
 
             EditorGUILayout.Space();
-
-            // Debug
             EditorGUILayout.LabelField("Debug", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(showGizmos);
-            EditorGUILayout.PropertyField(gizmoColor);
             EditorGUILayout.PropertyField(debugLogging);
 
             serializedObject.ApplyModifiedProperties();

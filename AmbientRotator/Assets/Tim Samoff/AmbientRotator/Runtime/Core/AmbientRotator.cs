@@ -44,7 +44,7 @@ namespace AmbientRotator
         [SerializeField, Range(0f, 10f)] private float intensity = 1f;
 
         [Tooltip("How fast the object moves. Higher values = faster motion.")]
-        [SerializeField, Range(0.1f, 10f)] private float speed = 1f;
+        [SerializeField] private float speed = 1f;
 
         [Tooltip("The starting point in the motion cycle. Use this to offset multiple objects.")]
         [SerializeField, Range(-360f, 360f)] private float phaseOffset = 0f;
@@ -168,7 +168,7 @@ namespace AmbientRotator
         
         public Vector3 MaxAngle { get => maxAngle; set => maxAngle = value; }
         public float SmoothTime { get => smoothTime; set => smoothTime = Mathf.Clamp(value, 0.01f, 1f); }
-        public float Speed { get => speed; set => speed = Mathf.Clamp(value, 0.1f, 10f); }
+        public float Speed { get => speed; set => speed = Mathf.Clamp(value, 0.1f, 200f); }
         public float PhaseOffset { get => phaseOffset; set => phaseOffset = value; }
         public float DecisionDuration { get => decisionDuration; set => decisionDuration = Mathf.Max(0.1f, value); }
         public bool ClampMovement { get => clampMovement; set => clampMovement = value; }
@@ -194,7 +194,7 @@ namespace AmbientRotator
         // Sets the speed multiplier for external influences.
         public void SetSpeedMultiplier(float multiplier)
         {
-            externalSpeedMultiplier = Mathf.Clamp(multiplier, 0.1f, 10f);
+            externalSpeedMultiplier = Mathf.Clamp(multiplier, 0.1f, 200f);
         }
 
         // Applies a force to the object (for backward compatibility).

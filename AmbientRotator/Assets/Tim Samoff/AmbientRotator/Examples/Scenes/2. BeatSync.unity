@@ -218,7 +218,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 141112805}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ef7ee1bd333758a4abc8941eaf200a45, type: 3}
   m_Name: 
@@ -274,27 +274,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c078dedd5f464dc4ba5207a30e6462ee, type: 3}
   m_Name: 
   m_EditorClassIdentifier: AmbientRotator::AmbientRotator.BeatSyncModule
-  musicSource: {fileID: 824672939}
-  beatReactionIntensity: 100
-  beatSmoothing: 0.1
-  minBeatThreshold: 0.0005
-  maxBeatThreshold: 0.005
-  spectrumSamples: 128
-  reaction:
-    pulse: 0
-    pulseHeight: 0.5
-    pulseIntensity: 1
-    rotate: 0
-    maxRotationAngle: 15
-    rotationIntensity: 3
-    rotationSmoothness: 0.1
-    rotationAxis: {x: 0.57735026, y: 0.57735026, z: 0.57735026}
-    wobble: 0
-    wobbleAmount: 0.5
-    wobbleIntensity: 50
-    wobbleFrequency: 2
-    decaySpeed: 0.1
-    cooldown: 0.05
+  sourceTag: Untagged
   debugLogging: 1
 --- !u!1 &824672938
 GameObject:
@@ -306,6 +286,7 @@ GameObject:
   m_Component:
   - component: {fileID: 824672940}
   - component: {fileID: 824672939}
+  - component: {fileID: 824672941}
   m_Layer: 0
   m_Name: Audio
   m_TagString: Untagged
@@ -425,6 +406,47 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &824672941
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 824672938}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 86fcfb419c907004c862bbdc221cda47, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: AmbientRotator::AmbientRotator.BeatSyncObject
+  musicSource: {fileID: 0}
+  reaction:
+    pulse: 1
+    pulseHeight: 1
+    pulseSpeed: 2
+    pulseIntensity: 50
+    rotate: 0
+    rotationIntensity: 40
+    rotationRampTime: 1
+    rotateX: 0
+    rotateY: 1
+    rotateZ: 0
+    wobble: 0
+    wobbleAmount: 1
+    wobbleIntensity: 50
+    wobbleFrequency: 2
+    pushAway: 0
+    pushAwayStrength: 5
+    attract: 0
+    attractStrength: 5
+    decaySpeed: 0.1
+    cooldown: 0.05
+  minBeatThreshold: 0.0001
+  maxBeatThreshold: 0.001
+  spectrumSamples: 256
+  beatSmoothing: 0.05
+  influenceRadius: 10
+  showDebugRadius: 1
+  debugColor: {r: 0, g: 0, b: 1, a: 1}
 --- !u!1 &829675955
 GameObject:
   m_ObjectHideFlags: 0

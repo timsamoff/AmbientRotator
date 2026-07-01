@@ -63,7 +63,7 @@ public class DragObject : MonoBehaviour
                     {
                         objectRenderer.material.color = selectedColor;
                     }
-                    Debug.Log($"🖱️ Started dragging: {gameObject.name}");
+
                 }
             }
         }
@@ -83,7 +83,7 @@ public class DragObject : MonoBehaviour
             {
                 objectRenderer.material.color = originalColor;
             }
-            Debug.Log($"🖱️ Stopped dragging: {gameObject.name}");
+
         }
     }
     

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace AmbientRotator
@@ -36,10 +37,25 @@ namespace AmbientRotator
         private float lastBeatTime;
         private bool isInitialized = false;
 
+        // Self-registering list of active sources. BeatSyncModule reads this directly instead of
+        // scanning the whole scene with FindObjectsByType every frame.
+        private static readonly List<BeatSyncObject> activeSources = new List<BeatSyncObject>();
+        public static IReadOnlyList<BeatSyncObject> ActiveSources => activeSources;
+
         public ReactionConfig Reaction => reaction;
         public float CurrentBeatStrength => currentBeatStrength;
         public float InfluenceRadius => influenceRadius;
         public Vector3 Position => transform.position;
+
+        private void OnEnable()
+        {
+            activeSources.Add(this);
+        }
+
+        private void OnDisable()
+        {
+            activeSources.Remove(this);
+        }
 
         private void Start()
         {

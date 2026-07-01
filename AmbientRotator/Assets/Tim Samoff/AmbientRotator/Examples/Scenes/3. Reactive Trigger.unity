@@ -275,7 +275,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: AmbientRotator::AmbientRotator.ReactiveTrigger
   sourceTag: Untagged
-  returnSpeed: 5
   debugLogging: 1
 --- !u!1 &688354364
 GameObject:
@@ -321,19 +320,21 @@ MonoBehaviour:
     pulseSpeed: 5
     pulseIntensity: 50
     rotate: 0
-    maxRotationAngle: 15
     rotationIntensity: 50
-    rotationAxis: {x: 0, y: 1, z: 0}
+    rotationRampTime: 1
+    rotateX: 0
+    rotateY: 1
+    rotateZ: 0
     wobble: 0
     wobbleAmount: 1
     wobbleIntensity: 50
     wobbleFrequency: 2
+    pushAway: 0
+    pushAwayStrength: 5
+    attract: 0
+    attractStrength: 5
     decaySpeed: 0.1
     cooldown: 0.05
-  pushAway: 0
-  pushAwayStrength: 5
-  attract: 0
-  attractStrength: 5
   showGizmos: 1
   gizmoColor: {r: 1, g: 0, b: 0, a: 1}
 --- !u!54 &688354366
@@ -804,19 +805,21 @@ MonoBehaviour:
     pulseSpeed: 2
     pulseIntensity: 50
     rotate: 0
-    maxRotationAngle: 15
     rotationIntensity: 50
-    rotationAxis: {x: 1, y: 1, z: 0}
+    rotationRampTime: 1
+    rotateX: 0
+    rotateY: 1
+    rotateZ: 0
     wobble: 0
     wobbleAmount: 1
     wobbleIntensity: 50
     wobbleFrequency: 2
+    pushAway: 1
+    pushAwayStrength: 5
+    attract: 0
+    attractStrength: 5
     decaySpeed: 0.1
     cooldown: 0.05
-  pushAway: 1
-  pushAwayStrength: 5
-  attract: 0
-  attractStrength: 5
   showGizmos: 1
   gizmoColor: {r: 1, g: 0, b: 0, a: 1}
 --- !u!1 &1370758890
@@ -863,19 +866,21 @@ MonoBehaviour:
     pulseSpeed: 5
     pulseIntensity: 50
     rotate: 1
-    maxRotationAngle: 90
     rotationIntensity: 50
-    rotationAxis: {x: 1, y: 1, z: 0}
+    rotationRampTime: 1
+    rotateX: 1
+    rotateY: 1
+    rotateZ: 1
     wobble: 0
     wobbleAmount: 1
     wobbleIntensity: 50
     wobbleFrequency: 2
+    pushAway: 0
+    pushAwayStrength: 5
+    attract: 0
+    attractStrength: 5
     decaySpeed: 0.1
     cooldown: 0.05
-  pushAway: 0
-  pushAwayStrength: 5
-  attract: 0
-  attractStrength: 5
   showGizmos: 1
   gizmoColor: {r: 1, g: 0, b: 0, a: 1}
 --- !u!54 &1370758892

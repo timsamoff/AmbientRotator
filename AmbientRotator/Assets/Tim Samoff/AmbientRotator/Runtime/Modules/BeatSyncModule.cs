@@ -3,147 +3,82 @@ using UnityEngine;
 namespace AmbientRotator
 {
     /// <summary>
-    /// Attach to objects with AmbientRotator. Listens for BeatSyncObject sources nearby.
-    /// Applies whatever reaction the source defines.
+    /// Attach to an object with AmbientRotator. Listens for nearby BeatSyncObject sources and
+    /// applies their reaction through ReactionEvaluator - the exact same code path used by
+    /// ReactiveTriggerModule, so both systems always behave identically.
     /// </summary>
     [AddComponentMenu("Ambient Rotator/Beat Sync Module")]
     [RequireComponent(typeof(AmbientRotator))]
     public class BeatSyncModule : MonoBehaviour
     {
         [Header("Filter Settings")]
-        [Tooltip("Only react to sources with this tag. Leave 'Untagged' to react to all sources.")]
+        [Tooltip("Only react to Beat Sync Objects with this tag. Leave as 'Untagged' to react to all sources.")]
         [SerializeField] private string sourceTag = "Untagged";
 
         [Header("Debug")]
+        [Tooltip("Logs each detected beat and its strength to the Console.")]
         [SerializeField] private bool debugLogging = false;
 
         private AmbientRotator parentRotator;
         private Transform cachedTransform;
-        private float pulseTimer = 0f;
+        private ReactionEvaluator.ReactionState reactionState;
+        private float lastSpinRampTime = 1f;
 
-        // Accumulated effects
-        private Vector3 accumulatedPulseOffset = Vector3.zero;
-        private Vector3 accumulatedRotationOffset = Vector3.zero;
-        private Vector3 accumulatedWobbleOffset = Vector3.zero;
-
-        // Rotation smoothing for beat sync
-        private float currentRotationSpeed = 0f;
-        private float targetRotationSpeed = 0f;
-
-        private void Start()
+        private void Awake()
         {
             parentRotator = GetComponent<AmbientRotator>();
             cachedTransform = transform;
-
-            if (parentRotator == null)
-            {
-                Debug.LogError($"BeatSyncModule: No AmbientRotator component found on {gameObject.name}!");
-            }
         }
 
         private void Update()
         {
             if (parentRotator == null) return;
 
-            BeatSyncObject[] sources = FindObjectsByType<BeatSyncObject>(FindObjectsInactive.Exclude);
-            
-            foreach (var source in sources)
+            BeatSyncObject strongestSource = null;
+            float strongestStrength = 0f;
+            Vector3 directionFromSource = Vector3.up;
+
+            var sources = BeatSyncObject.ActiveSources;
+            for (int i = 0; i < sources.Count; i++)
             {
-                // Filter by tag if specified
-                if (!string.IsNullOrEmpty(sourceTag) && sourceTag != "Untagged")
-                {
-                    if (!source.CompareTag(sourceTag)) continue;
-                }
+                BeatSyncObject source = sources[i];
+                if (!ReactionEvaluator.PassesTagFilter(sourceTag, source.tag)) continue;
 
                 float distance = Vector3.Distance(cachedTransform.position, source.Position);
                 if (distance > source.InfluenceRadius) continue;
+                if (!source.IsBeatDetected()) continue;
 
-                if (source.IsBeatDetected())
+                float strength = source.GetStrengthAtPosition(cachedTransform.position);
+                if (strength > strongestStrength)
                 {
-                    float strength = source.GetStrengthAtPosition(cachedTransform.position);
-                    ApplyReaction(source.Reaction, strength);
-                    source.ConsumeBeat();
-
-                    if (debugLogging)
-                    {
-                        Debug.Log($"Beat from {source.name} at strength {strength:F2}");
-                    }
+                    strongestStrength = strength;
+                    strongestSource = source;
+                    Vector3 dir = cachedTransform.position - source.Position;
+                    directionFromSource = dir.sqrMagnitude > 0.0001f ? dir.normalized : Vector3.up;
                 }
             }
 
-            ApplyAccumulatedEffects();
-        }
-
-        private void ApplyReaction(ReactionConfig reaction, float strength)
-        {
-            if (parentRotator == null) return;
-
-            float scaledStrength = strength * 0.5f;
-
-            // --- Pulse ---
-            if (reaction.pulse && reaction.pulseHeight > 0.01f && reaction.pulseIntensity > 0.01f)
+            if (strongestSource != null)
             {
-                float intensityMultiplier = reaction.pulseIntensity / 50f;
-                float targetHeight = scaledStrength * reaction.pulseHeight * intensityMultiplier;
-                
-                pulseTimer += Time.deltaTime * reaction.pulseSpeed;
-                float pulseValue = Mathf.Sin(pulseTimer) * targetHeight;
-                
-                accumulatedPulseOffset += Vector3.up * pulseValue * Time.deltaTime * 4f;
-            }
+                strongestSource.ConsumeBeat();
 
-            // --- Rotation - Uses baseRotationSpeed directly (no intensity) ---
-            if (reaction.rotate && reaction.baseRotationSpeed > 0.01f)
+                var output = ReactionEvaluator.Evaluate(
+                    strongestSource.Reaction, strongestStrength, Time.deltaTime, directionFromSource, ref reactionState);
+
+                parentRotator.AddPositionOffset(output.positionOffset);
+                parentRotator.SetExternalSpin(output.spinAxis, output.spinTargetSpeed, output.spinRampTime);
+                lastSpinRampTime = output.spinRampTime;
+
+                if (debugLogging)
+                    Debug.Log($"[BeatSyncModule] Beat from '{strongestSource.name}' at strength {strongestStrength:F2}", this);
+            }
+            else
             {
-                // Calculate target rotation speed based on beat strength
-                targetRotationSpeed = reaction.baseRotationSpeed * scaledStrength * 0.1f;
-                
-                // Smooth the rotation speed using transition time
-                float transitionSpeed = 1f / Mathf.Max(reaction.rotationTransitionTime, 0.01f);
-                currentRotationSpeed = Mathf.Lerp(currentRotationSpeed, targetRotationSpeed, Time.deltaTime * transitionSpeed * 5f);
-                
-                Vector3 axis = reaction.RotationAxis;
-                accumulatedRotationOffset += axis * currentRotationSpeed * Time.deltaTime;
+                // No active beat this frame - ramp spin back down to rest using the last reaction's ramp
+                // time. Position offset (pulse/wobble/push/attract) decays on its own via AmbientRotator's
+                // External Decay setting, so nothing else needs to happen here.
+                parentRotator.SetExternalSpin(Vector3.up, 0f, lastSpinRampTime);
             }
-
-            // --- Wobble ---
-            if (reaction.wobble && reaction.wobbleAmount > 0.01f && reaction.wobbleIntensity > 0.01f)
-            {
-                float intensityMultiplier = reaction.wobbleIntensity / 50f;
-                float wobbleScale = scaledStrength * reaction.wobbleAmount * intensityMultiplier * 0.15f;
-                
-                float wobbleX = Mathf.Sin(Time.time * reaction.wobbleFrequency) * wobbleScale;
-                float wobbleZ = Mathf.Cos(Time.time * reaction.wobbleFrequency * 0.7f + 1.2f) * wobbleScale;
-                
-                accumulatedWobbleOffset += new Vector3(wobbleX, 0, wobbleZ) * Time.deltaTime * 4f;
-            }
-        }
-
-        private void ApplyAccumulatedEffects()
-        {
-            if (parentRotator == null) return;
-
-            if (accumulatedPulseOffset.magnitude > 0.0001f)
-            {
-                parentRotator.AddPositionOffset(accumulatedPulseOffset);
-                accumulatedPulseOffset *= 0.95f;
-            }
-
-            if (accumulatedWobbleOffset.magnitude > 0.0001f)
-            {
-                parentRotator.AddPositionOffset(accumulatedWobbleOffset);
-                accumulatedWobbleOffset *= 0.95f;
-            }
-
-            if (accumulatedRotationOffset.magnitude > 0.0001f)
-            {
-                parentRotator.AddRotationOffset(accumulatedRotationOffset);
-                accumulatedRotationOffset *= 0.95f;
-            }
-
-            accumulatedPulseOffset = Vector3.ClampMagnitude(accumulatedPulseOffset, 10f);
-            accumulatedWobbleOffset = Vector3.ClampMagnitude(accumulatedWobbleOffset, 10f);
-            accumulatedRotationOffset = Vector3.ClampMagnitude(accumulatedRotationOffset, 45f);
         }
     }
 }

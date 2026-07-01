@@ -6,10 +6,19 @@ namespace AmbientRotator
     public class PhysicsAmbientRotator : AmbientRotator
     {
         [Header("Physics Settings")]
+        [Tooltip("Scales the ambient motion before it's converted into torque/rotation. Higher = more dramatic physical motion.")]
         [SerializeField] private float torqueMultiplier = 1f;
+
+        [Tooltip("How quickly the applied torque catches up to the target torque. Lower = heavier, slower-reacting; higher = snappier.")]
         [SerializeField] private float damping = 0.5f;
+
+        [Tooltip("When enabled, motion is driven through the Rigidbody (via MoveRotation or AddTorque below) so it respects physics and collisions. When disabled, this behaves like a regular AmbientRotator and ignores physics entirely.")]
         [SerializeField] private bool usePhysicsRotation = true;
+
+        [Tooltip("When enabled, motion is applied as a continuous force via Rigidbody.AddTorque - the object can be pushed off course by collisions and other physics. When disabled, rotation is set directly via Rigidbody.MoveRotation, which respects physics for collision purposes but can't be knocked off course by other forces.")]
         [SerializeField] private bool usePhysicsForce = false;
+
+        [Tooltip("Scales the torque applied when Use Physics Force is enabled. Only relevant if Use Physics Force is on.")]
         [SerializeField] private float forceMultiplier = 0.1f;
         
         private Rigidbody rb;

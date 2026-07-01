@@ -94,7 +94,11 @@ namespace AmbientRotator
         [SerializeField, Range(0f, 10f)] private float blendSpeed = 0.5f;
 
         [Header("External Influence")]
-        [Tooltip("How external forces interact with ambient motion.")]
+        // NOTE: AmbientOnly and Blended currently behave identically - only ExternalDriven changes
+        // behavior (it pauses new ambient decision-making while an external position offset is
+        // active). If you want AmbientOnly to truly ignore reactions, that still needs implementing.
+        [Tooltip("External Driven = pauses picking new ambient motion directions while a reaction is pushing/pulling the object; the reaction and prior ambient motion still blend together visually.\n" +
+                 "Ambient Only / Blended = ambient motion keeps picking new directions regardless of reactions (currently behave the same).")]
         [SerializeField] private InfluenceMode influenceMode = InfluenceMode.Blended;
 
         [Tooltip("How quickly external offsets decay. Lower = snappier, Higher = smoother.")]
@@ -143,6 +147,19 @@ namespace AmbientRotator
         private Vector3 positionVelocity;
         private Vector3 rotationVelocity;
 
+        // --- External Spin State ---
+        // A continuous rotation channel, separate from externalRotationOffset above.
+        // externalRotationOffset is a clamped, decaying *offset* from the base rotation - it's meant
+        // for kicks and nudges, and can never represent an ongoing spin because it's bounded by
+        // maxExternalOffset. This channel instead integrates rotation every frame, so modules can
+        // drive an actual continuous spin (e.g. Rotate reactions) that ramps smoothly to a target
+        // speed and back down to zero, with no upper bound on total rotation.
+        private Vector3 externalSpinAxis = Vector3.up;
+        private float externalSpinTargetSpeed;
+        private float externalSpinRampTime = 1f;
+        private float externalSpinCurrentSpeed;
+        private Quaternion externalSpinRotation = Quaternion.identity;
+
         // --- Decision State ---
         private float currentDecisionTime = 0f;
         private Vector3 currentDecisionTarget;
@@ -165,6 +182,7 @@ namespace AmbientRotator
         public Vector3 ExternalPositionOffset => externalPositionOffset;
         public Vector3 ExternalRotationOffset => externalRotationOffset;
         public float ExternalSpeedMultiplier => externalSpeedMultiplier;
+        public float CurrentSpinSpeed => externalSpinCurrentSpeed;
         
         public Vector3 MaxAngle { get => maxAngle; set => maxAngle = value; }
         public float SmoothTime { get => smoothTime; set => smoothTime = Mathf.Clamp(value, 0.01f, 1f); }
@@ -174,6 +192,8 @@ namespace AmbientRotator
         public bool ClampMovement { get => clampMovement; set => clampMovement = value; }
         public float MaxSpeed { get => maxSpeed; set => maxSpeed = Mathf.Clamp(value, 0f, 1000f); }
         public InfluenceMode CurrentInfluenceMode { get => influenceMode; set => influenceMode = value; }
+        public bool UseUnscaledTime { get => useUnscaledTime; set => useUnscaledTime = value; }
+        public UpdateMethod CurrentUpdateMethod { get => updateMethod; set => updateMethod = value; }
 
         // --- External API for Modules ---
 
@@ -197,6 +217,17 @@ namespace AmbientRotator
             externalSpeedMultiplier = Mathf.Clamp(multiplier, 0.1f, 200f);
         }
 
+        // Drives the continuous spin channel toward a target speed (degrees/second) around an axis,
+        // ramping over rampTimeSeconds. Call every frame while a module wants to influence spin -
+        // pass targetDegreesPerSecond = 0 to smoothly ramp back down to rest using the same channel.
+        public void SetExternalSpin(Vector3 axis, float targetDegreesPerSecond, float rampTimeSeconds)
+        {
+            if (axis.sqrMagnitude > 0.0001f)
+                externalSpinAxis = axis.normalized;
+            externalSpinTargetSpeed = targetDegreesPerSecond;
+            externalSpinRampTime = Mathf.Max(0.01f, rampTimeSeconds);
+        }
+
         // Applies a force to the object (for backward compatibility).
         public void ApplyForce(Vector3 force)
         {
@@ -212,6 +243,9 @@ namespace AmbientRotator
             externalSpeedMultiplier = 1f;
             positionVelocity = Vector3.zero;
             rotationVelocity = Vector3.zero;
+            externalSpinTargetSpeed = 0f;
+            externalSpinCurrentSpeed = 0f;
+            externalSpinRotation = Quaternion.identity;
         }
 
         // Gradually returns to the base state.
@@ -225,11 +259,13 @@ namespace AmbientRotator
         {
             while (externalPositionOffset.magnitude > 0.01f || 
                    externalRotationOffset.magnitude > 0.01f ||
-                   Mathf.Abs(externalSpeedMultiplier - 1f) > 0.01f)
+                   Mathf.Abs(externalSpeedMultiplier - 1f) > 0.01f ||
+                   Mathf.Abs(externalSpinCurrentSpeed) > 0.01f)
             {
                 externalPositionOffset = Vector3.Lerp(externalPositionOffset, Vector3.zero, Time.deltaTime * speed);
                 externalRotationOffset = Vector3.Lerp(externalRotationOffset, Vector3.zero, Time.deltaTime * speed);
                 externalSpeedMultiplier = Mathf.Lerp(externalSpeedMultiplier, 1f, Time.deltaTime * speed);
+                externalSpinTargetSpeed = 0f;
                 yield return null;
             }
         }
@@ -253,7 +289,8 @@ namespace AmbientRotator
         
         public void SetSpeed(float newSpeed)
         {
-            speed = Mathf.Clamp(newSpeed, 0.1f, 10f);
+            // Matches the Speed property's range - these were previously inconsistent (0.1-10 here vs 0.1-200 on the property).
+            speed = Mathf.Clamp(newSpeed, 0.1f, 200f);
             if (!isApplyingPreset && profile != MotionProfile.Custom)
             {
                 profile = MotionProfile.Custom;
@@ -531,10 +568,20 @@ namespace AmbientRotator
             externalPositionOffset = Vector3.ClampMagnitude(externalPositionOffset, maxExternalOffset);
             externalRotationOffset = Vector3.ClampMagnitude(externalRotationOffset, maxExternalOffset);
 
+            // --- Integrate external spin ---
+            // Unlike externalRotationOffset above, this channel is not a clamped offset - it's a
+            // running rotation that accumulates every frame, so it can represent genuine continuous
+            // spinning. currentSpeed ramps toward targetSpeed using an exponential approach so ramp
+            // time behaves consistently regardless of frame rate.
+            float spinLerpFactor = 1f - Mathf.Exp(-deltaTime / externalSpinRampTime);
+            externalSpinCurrentSpeed = Mathf.Lerp(externalSpinCurrentSpeed, externalSpinTargetSpeed, spinLerpFactor);
+            if (Mathf.Abs(externalSpinCurrentSpeed) > 0.01f)
+                externalSpinRotation *= Quaternion.AngleAxis(externalSpinCurrentSpeed * deltaTime, externalSpinAxis);
+
             // --- Compose final rotation ---
             Quaternion baseQuat = initialRotation * Quaternion.Euler(currentOffset);
             Quaternion externalQuat = Quaternion.Euler(externalRotationOffset);
-            Quaternion targetQuat = baseQuat * externalQuat;
+            Quaternion targetQuat = baseQuat * externalQuat * externalSpinRotation;
 
             // --- Apply rotation ---
             if (useLocalRotation)

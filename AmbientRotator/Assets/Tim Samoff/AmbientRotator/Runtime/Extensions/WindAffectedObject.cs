@@ -33,29 +33,35 @@ namespace AmbientRotator
         public float Multiplier => multiplier;
         public float RandomOffset => randomOffset;
         
-        private AmbientRotator ambientRotator;
         private bool isRegistered = false;
-        
+
         private void Start()
         {
+            // If this object also has an AmbientRotator, it already receives wind automatically
+            // through AmbientRotator's own GetWindForce() call each frame. Registering here too
+            // would mean two systems writing this transform's position/rotation in the same frame,
+            // fighting each other and applying wind twice. WindAffectedObject is meant for objects
+            // *without* AmbientRotator (e.g. mass grass fields), so skip registration in that case.
+            if (GetComponent<AmbientRotator>() != null)
+            {
+                Debug.LogWarning($"WindAffectedObject on '{gameObject.name}' also has an AmbientRotator, which already receives wind automatically. Skipping WindAffectedObject registration to avoid the two systems fighting over the same transform - you can safely remove this component.", this);
+                return;
+            }
+
             // Generate random offset if not set (allow 0 to be a valid value)
             if (randomOffset == 0f)
             {
                 randomOffset = Random.Range(0f, 100f);
             }
-            
-            // Check for AmbientRotator on the same object
-            ambientRotator = GetComponent<AmbientRotator>();
-            
-            // Register with the manager
+
             if (WindSystemModule.Instance != null)
             {
-                WindSystemModule.Instance.RegisterObject(transform, sensitivity, multiplier);
+                WindSystemModule.Instance.RegisterObject(transform, sensitivity, multiplier, randomOffset);
                 isRegistered = true;
             }
             else
             {
-                Debug.LogWarning($"WindAffectedObject on '{gameObject.name}': No WindSystemModule found in scene. Please add one to any GameObject.");
+                Debug.LogWarning($"WindAffectedObject on '{gameObject.name}': No WindSystemModule found in scene. Please add one to any GameObject.", this);
             }
         }
         
@@ -92,7 +98,7 @@ namespace AmbientRotator
             if (isRegistered && WindSystemModule.Instance != null)
             {
                 WindSystemModule.Instance.UnregisterObject(transform);
-                WindSystemModule.Instance.RegisterObject(transform, sensitivity, multiplier);
+                WindSystemModule.Instance.RegisterObject(transform, sensitivity, multiplier, randomOffset);
             }
         }
     }
